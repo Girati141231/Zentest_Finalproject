@@ -1,0 +1,43 @@
+export type Priority = 'Critical' | 'High' | 'Medium' | 'Low';
+export type Status = 'Passed' | 'Failed' | 'Pending';
+
+export interface Project {
+  id: string;
+  name: string;
+  color: string;
+  initial: string;
+  owner?: string;
+}
+
+export interface Module {
+  id: string;
+  projectId: string;
+  name: string;
+}
+
+export interface TestCase {
+  id: string;
+  projectId: string;
+  title: string;
+  module: string;
+  priority: Priority;
+  status: Status;
+  steps: string[];
+  expected: string;
+  script: string;
+  hasAutomation: boolean;
+  timestamp?: number;
+  lastUpdatedBy?: string;
+  lastUpdatedByName?: string;
+}
+
+export interface LogEntry {
+  msg: string;
+  type: 'info' | 'success' | 'error';
+}
+
+export type ModalMode = 'create' | 'edit' | 'join' | null;
+
+export const PRIORITIES: Priority[] = ['Critical', 'High', 'Medium', 'Low'];
+export const STATUSES: Status[] = ['Passed', 'Failed', 'Pending'];
+export const COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#a855f7', '#6366f1'];

@@ -1,0 +1,5 @@
+{
+  "name": "ZenTest Enterprise",
+  "description": "A minimalist, dark-themed test case management system with Firebase integration for real-time collaboration and automation simulation.",
+  "requestFramePermissions": []
+}
