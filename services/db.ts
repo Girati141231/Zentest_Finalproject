@@ -5,10 +5,13 @@ import {
   deleteDoc,
   updateDoc,
   addDoc,
-  serverTimestamp
+  serverTimestamp,
+  query,
+  where,
+  onSnapshot
 } from 'firebase/firestore';
 import { db, appId, isConfigured } from '../firebase';
-import { Project, TestCase, Module, APITestCase } from '../types';
+import { Project, TestCase, Module, APITestCase, Comment } from '../types';
 
 // Paths
 const PUBLIC_DATA_PATH = ['artifacts', appId, 'public', 'data'];
@@ -78,6 +81,7 @@ export const TestCaseService = {
     const audit = {
       lastUpdatedBy: user?.uid,
       lastUpdatedByName: user?.displayName || 'Unknown',
+      lastUpdatedByPhoto: user?.photoURL || null,
       timestamp
     };
 
@@ -103,6 +107,7 @@ export const TestCaseService = {
       status,
       lastUpdatedBy: user?.uid,
       lastUpdatedByName: user?.displayName || 'Unknown',
+      lastUpdatedByPhoto: user?.photoURL || null,
       timestamp: Date.now()
     });
   }
@@ -135,6 +140,7 @@ export const APITestCaseService = {
     const audit = {
       lastUpdatedBy: user?.uid,
       lastUpdatedByName: user?.displayName || 'Unknown',
+      lastUpdatedByPhoto: user?.photoURL || null,
       timestamp
     };
 
@@ -158,9 +164,37 @@ export const APITestCaseService = {
     if (!isConfigured) { await delay(200); return; }
     await updateDoc(doc(db, PUBLIC_DATA_PATH[0], PUBLIC_DATA_PATH[1], PUBLIC_DATA_PATH[2], PUBLIC_DATA_PATH[3], 'apiTestCases', id), {
       status,
+      timestamp: Date.now(),
       lastUpdatedBy: user?.uid,
       lastUpdatedByName: user?.displayName || 'Unknown',
-      timestamp: Date.now()
+      lastUpdatedByPhoto: user?.photoURL || null
     });
+  }
+};
+
+export const CommentService = {
+  subscribe: (testCaseId: string, callback: (comments: Comment[]) => void) => {
+    if (!isConfigured) { callback([]); return () => { }; }
+    const q = query(
+      collection(db, PUBLIC_DATA_PATH[0], PUBLIC_DATA_PATH[1], PUBLIC_DATA_PATH[2], PUBLIC_DATA_PATH[3], 'comments'),
+      where('testCaseId', '==', testCaseId)
+    );
+    return onSnapshot(q, (snapshot) => {
+      const comments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Comment));
+      // Sort by timestamp asc
+      comments.sort((a, b) => a.timestamp - b.timestamp);
+      callback(comments);
+    });
+  },
+
+  add: async (comment: Omit<Comment, 'id'>) => {
+    if (!isConfigured) { await delay(300); return; }
+    await addDoc(collection(db, PUBLIC_DATA_PATH[0], PUBLIC_DATA_PATH[1], PUBLIC_DATA_PATH[2], PUBLIC_DATA_PATH[3], 'comments'), comment);
+  },
+
+  delete: async (id: string) => {
+    if (!isConfigured) { await delay(300); return; }
+    const ref = doc(db, PUBLIC_DATA_PATH[0], PUBLIC_DATA_PATH[1], PUBLIC_DATA_PATH[2], PUBLIC_DATA_PATH[3], 'comments', id);
+    await deleteDoc(ref);
   }
 };

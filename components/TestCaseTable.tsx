@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  Square, CheckSquare, ListOrdered, RefreshCcw, Play, Edit3, Trash2, CheckCircle2, XCircle
+  Square, CheckSquare, ListOrdered, RefreshCcw, Play, Edit3, Trash2, CheckCircle2, XCircle, MessageSquare, User
 } from 'lucide-react';
 import Badge from './ui/Badge';
 import { TestCase } from '../types';
@@ -16,6 +16,7 @@ interface TestCaseTableProps {
   onEdit: (tc: TestCase) => void;
   onDelete: (id: string) => void;
   onStatusUpdate: (id: string, status: 'Passed' | 'Failed') => void;
+  onMessage: (tc: TestCase) => void;
 }
 
 const TestCaseTable: React.FC<TestCaseTableProps> = ({
@@ -28,7 +29,8 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
   onRun,
   onEdit,
   onDelete,
-  onStatusUpdate
+  onStatusUpdate,
+  onMessage
 }) => {
   return (
     <div className="border border-white/10 rounded-sm overflow-hidden bg-[#050505]">
@@ -47,9 +49,9 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
             <th className="px-4 py-3 font-bold w-16 text-center">Round</th>
             <th className="px-4 py-3 font-bold w-24">Priority</th>
             <th className="px-4 py-3 font-bold w-24">Status</th>
-            <th className="px-4 py-3 font-bold w-16 text-center">Auto</th>
-            <th className="px-4 py-3 font-bold w-32 border-l border-white/5">Update By</th>
-            <th className="px-4 py-3 w-32 text-center">Actions</th>
+            <th className="px-4 py-3 font-bold w-12 text-center">Auto</th>
+            <th className="px-4 py-3 font-bold w-36 border-l border-white/5">Update By</th>
+            <th className="px-4 py-3 w-40 text-center">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-white/5">
@@ -60,9 +62,9 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
                   {selectedIds.has(c.id) ? <CheckSquare size={16} /> : <Square size={16} />}
                 </button>
               </td>
-              <td className="px-4 py-3 text-white/30 font-mono text-[11px] font-bold">{c.id}</td>
-              <td className="px-4 py-3">
-                <div className="text-white/90 font-medium max-w-[250px] truncate group-hover:text-white transition-colors text-xs">
+              <td className="px-4 py-4 text-white/30 font-mono text-[10px] font-bold">{c.id}</td>
+              <td className="px-4 py-4">
+                <div className="text-white text-sm font-medium max-w-[300px] truncate group-hover:text-blue-400 transition-colors">
                   {c.title}
                 </div>
               </td>
@@ -96,35 +98,55 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
                   )
                 )}
               </td>
-              <td className="px-4 py-3 text-[10px] text-white/40 border-l border-white/5">
-                <div className="flex flex-col">
-                  <span className="font-bold truncate max-w-[100px]">{c.lastUpdatedByName || '-'}</span>
-                  <span className="text-white/20">{c.timestamp ? new Date(c.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '-'}</span>
+              <td className="px-4 py-4 text-[11px] text-white/40 border-l border-white/5">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
+                    {c.lastUpdatedByPhoto ? (
+                      <img src={c.lastUpdatedByPhoto} alt="User" className="w-full h-full object-cover" />
+                    ) : (
+                      <User size={12} className="text-white/30" />
+                    )}
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-bold truncate max-w-[80px] text-white/70">{c.lastUpdatedByName || '-'}</span>
+                    <span className="text-[9px] text-white/20">{c.timestamp ? new Date(c.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '-'}</span>
+                  </div>
                 </div>
               </td>
-              <td className="px-4 py-3 text-right">
-                <div className="flex items-center justify-center gap-1">
+              <td className="px-4 py-4 text-right">
+                <div className="flex items-center justify-center gap-2">
                   <button
                     onClick={() => onStatusUpdate(c.id, 'Passed')}
-                    className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/20 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all"
+                    className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/20 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all opacity-40 group-hover:opacity-100"
                     title="Mark Passed"
                   >
-                    <CheckCircle2 size={14} />
+                    <CheckCircle2 size={16} />
                   </button>
                   <button
                     onClick={() => onStatusUpdate(c.id, 'Failed')}
-                    className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                    className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-all opacity-40 group-hover:opacity-100"
                     title="Mark Failed"
                   >
-                    <XCircle size={14} />
+                    <XCircle size={16} />
                   </button>
-                  <div className="w-px h-4 bg-white/10 mx-1"></div>
+
+                  <div className="w-px h-4 bg-white/5 mx-1"></div>
+
+                  <button
+                    onClick={() => onMessage(c)}
+                    className="flex items-center justify-center w-8 h-8 rounded-full border border-white/5 bg-white/[0.02] text-white/40 hover:text-blue-400 hover:bg-blue-500/10 hover:border-blue-500/20 transition-all shadow-sm"
+                    title="Comments"
+                  >
+                    <MessageSquare size={14} />
+                  </button>
+
                   <button
                     onClick={() => onEdit(c)}
-                    className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/30 hover:text-blue-400 hover:border-blue-400/20 hover:bg-blue-400/10 transition-all"
+                    className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/30 hover:text-white transition-all opacity-40 group-hover:opacity-100"
                   >
                     <Edit3 size={14} />
                   </button>
+
                   <button
                     onClick={() => onDelete(c.id)}
                     className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/10 hover:text-red-500 hover:border-red-500/20 hover:bg-red-500/5 opacity-0 group-hover:opacity-100 transition-all"

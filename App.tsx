@@ -18,8 +18,8 @@ import {
 
 // Core
 import { auth, db, appId, isConfigured } from './firebase';
-import { Project, Module, TestCase, APITestCase, LogEntry, ModalMode, STATUSES } from './types';
-import { ProjectService, TestCaseService, APITestCaseService, ModuleService } from './services/db';
+import { Project, Module, TestCase, APITestCase, LogEntry, ModalMode, STATUSES, Comment } from './types';
+import { ProjectService, TestCaseService, APITestCaseService, ModuleService, CommentService } from './services/db';
 
 // Components
 import Sidebar from './components/Sidebar';
@@ -30,6 +30,9 @@ import TestCaseForm from './components/TestCaseForm';
 import APITable from './components/APITable';
 import APIForm from './components/APIForm';
 import Dashboard from './components/Dashboard';
+import LandingPage from './components/LandingPage';
+import ConfirmModal from './components/ui/ConfirmModal';
+import CommentsDrawer from './components/CommentsDrawer';
 
 // Mock Data for Demo Mode
 const MOCK_PROJECTS: Project[] = [
@@ -68,7 +71,7 @@ export default function App() {
   const [apiTestCases, setApiTestCases] = useState<APITestCase[]>([]);
 
   // UI
-  const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<'functional' | 'api' | 'dashboard'>('dashboard');
   const [search, setSearch] = useState('');
@@ -80,6 +83,12 @@ export default function App() {
   const [projectModalMode, setProjectModalMode] = useState<ModalMode>(null);
   const [editingCase, setEditingCase] = useState<TestCase | null>(null);
   const [editingAPICase, setEditingAPICase] = useState<APITestCase | null>(null);
+  const [confirmConfig, setConfirmConfig] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
+
+  // Comments
+  const [isCommentDrawerOpen, setIsCommentDrawerOpen] = useState(false);
+  const [activeCommentCase, setActiveCommentCase] = useState<{ id: string; title: string } | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
 
   // Execution
   const [executingId, setExecutingId] = useState<string | null>(null);
@@ -191,6 +200,21 @@ export default function App() {
 
     return () => { unsubModules(); unsubCases(); unsubAPI(); };
   }, [user, activeProjectId]);
+
+  // Subscribe to comments when drawer is open
+  useEffect(() => {
+    if (!activeCommentCase) return;
+
+    if (user?.uid === 'demo-user') {
+      // Demo mode: comments are local state only for now
+      return;
+    }
+
+    const unsubscribe = CommentService.subscribe(activeCommentCase.id, (data) => {
+      setComments(data);
+    });
+    return () => unsubscribe();
+  }, [activeCommentCase, user]);
 
   // --- Helpers ---
 
@@ -396,23 +420,29 @@ export default function App() {
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
 
-    if (user.uid === 'demo-user') {
-      if (viewMode === 'functional') {
-        setTestCases(prev => prev.filter(c => !selectedIds.has(c.id)));
-      } else {
-        setApiTestCases(prev => prev.filter(c => !selectedIds.has(c.id)));
-      }
-      setSelectedIds(new Set());
-      return;
-    }
+    setConfirmConfig({
+      title: "Delete Selected Items",
+      message: `Are you sure you want to delete ${selectedIds.size} selected item(s)?`,
+      onConfirm: async () => {
+        if (user.uid === 'demo-user') {
+          if (viewMode === 'functional') {
+            setTestCases(prev => prev.filter(c => !selectedIds.has(c.id)));
+          } else {
+            setApiTestCases(prev => prev.filter(c => !selectedIds.has(c.id)));
+          }
+          setSelectedIds(new Set());
+          return;
+        }
 
-    const idsToDelete = Array.from(selectedIds) as string[];
-    if (viewMode === 'functional') {
-      await Promise.all(idsToDelete.map(id => TestCaseService.delete(id)));
-    } else {
-      await Promise.all(idsToDelete.map(id => APITestCaseService.delete(id)));
-    }
-    setSelectedIds(new Set());
+        const idsToDelete = Array.from(selectedIds) as string[];
+        if (viewMode === 'functional') {
+          await Promise.all(idsToDelete.map(id => TestCaseService.delete(id)));
+        } else {
+          await Promise.all(idsToDelete.map(id => APITestCaseService.delete(id)));
+        }
+        setSelectedIds(new Set());
+      }
+    });
   };
 
   const handleTestCaseSave = async (data: Partial<TestCase>, isNew: boolean) => {
@@ -441,6 +471,35 @@ export default function App() {
     await APITestCaseService.save(data, isNew, user);
   };
 
+  const handleAddComment = async (content: string) => {
+    if (!activeCommentCase || !user) return;
+
+    const newComment: any = {
+      testCaseId: activeCommentCase.id,
+      projectId: activeProjectId!,
+      userId: user.uid,
+      userName: user.displayName || 'Guest',
+      userPhoto: user.photoURL,
+      content,
+      timestamp: Date.now()
+    };
+
+    if (user.uid === 'demo-user') {
+      setComments(prev => [...prev, { ...newComment, id: `comment-${Date.now()}` }]);
+      return;
+    }
+
+    await CommentService.add(newComment);
+  };
+
+  const handleDeleteComment = async (id: string) => {
+    if (user.uid === 'demo-user') {
+      setComments(prev => prev.filter(c => c.id !== id));
+      return;
+    }
+    await CommentService.delete(id);
+  };
+
   const handleQuickStatusUpdate = async (id: string, status: 'Passed' | 'Failed', type: 'functional' | 'api') => {
     if (user.uid === 'demo-user') {
       if (type === 'functional') {
@@ -463,27 +522,7 @@ export default function App() {
   if (authLoading) return <div className="h-screen bg-black flex items-center justify-center text-white font-mono text-xs animate-pulse">BOOTING KERNEL...</div>;
 
   if (!user) {
-    return (
-      <div className="h-screen bg-black flex flex-col items-center justify-center gap-6 relative overflow-hidden">
-        <div className="absolute inset-0 bg-blue-500/5 blur-[100px]"></div>
-        <div className="z-10 bg-[#0a0a0a] p-8 rounded-lg border border-white/10 shadow-2xl w-[320px] flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <div className="p-3 bg-white/5 rounded-full mb-2">
-            <Activity size={32} className="text-white" />
-          </div>
-          <div className="text-center space-y-1">
-            <h1 className="text-xl font-bold text-white tracking-tight">ZEN<span className="text-white/40">TEST</span></h1>
-            <p className="text-[10px] text-white/40 uppercase tracking-widest">Test Management OS</p>
-          </div>
-          <button onClick={handleLogin} className="w-full bg-white text-black font-bold py-2.5 rounded text-xs hover:bg-white/90 transition-all flex items-center justify-center gap-2 active:scale-95 mt-2">
-            <LogIn size={14} /> SIGN IN WITH GOOGLE
-          </button>
-          <button onClick={handleDemoLogin} className="w-full bg-white/5 text-white/60 font-bold py-2.5 rounded text-xs hover:bg-white/10 hover:text-white transition-all flex items-center justify-center gap-2 active:scale-95 border border-white/5">
-            ENTER DEMO MODE
-          </button>
-        </div>
-        <div className="absolute bottom-6 text-[10px] text-white/20 font-mono tracking-widest">Running v2.4.0-stable</div>
-      </div>
-    );
+    return <LandingPage onLogin={handleLogin} onDemo={handleDemoLogin} />;
   }
 
   return (
@@ -552,46 +591,50 @@ export default function App() {
                 </button>
               </>
             )}
-            <button
-              disabled={!activeProjectId}
-              onClick={() => {
-                if (viewMode === 'functional') {
-                  setEditingCase(null); setIsCaseModalOpen(true);
-                } else {
-                  setEditingAPICase(null); setIsAPIModalOpen(true);
-                }
-              }}
-              className="bg-white text-black px-4 py-2 rounded-sm text-xs font-bold hover:bg-white/90 transition-all active:scale-95 disabled:opacity-20 shadow-lg"
-            >
-              + NEW {viewMode === 'functional' ? 'CASE' : 'API'}
-            </button>
+            {viewMode !== 'dashboard' && (
+              <button
+                disabled={!activeProjectId}
+                onClick={() => {
+                  if (viewMode === 'functional') {
+                    setEditingCase(null); setIsCaseModalOpen(true);
+                  } else {
+                    setEditingAPICase(null); setIsAPIModalOpen(true);
+                  }
+                }}
+                className="bg-white text-black px-4 py-2 rounded-sm text-xs font-bold hover:bg-white/90 transition-all active:scale-95 disabled:opacity-20 shadow-lg"
+              >
+                + NEW {viewMode === 'functional' ? 'CASE' : 'API'}
+              </button>
+            )}
           </div>
         </header>
 
-        <div className="h-12 border-b border-white/10 flex items-center px-6 gap-4 bg-[#050505]">
-          <div className="relative flex-1 max-w-md group">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-white/60 transition-colors" />
-            <input
-              type="text"
-              placeholder="Search cases..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-white/[0.03] border border-white/5 rounded-sm pl-9 pr-3 py-1.5 text-xs text-white focus:bg-white/[0.06] focus:border-white/10 transition-all outline-none"
-            />
+        {viewMode !== 'dashboard' && (
+          <div className="h-12 border-b border-white/10 flex items-center px-6 gap-4 bg-[#050505]">
+            <div className="relative flex-1 max-w-md group">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-white/60 transition-colors" />
+              <input
+                type="text"
+                placeholder="Search cases..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full bg-white/[0.03] border border-white/5 rounded-sm pl-9 pr-3 py-1.5 text-xs text-white focus:bg-white/[0.06] focus:border-white/10 transition-all outline-none"
+              />
+            </div>
+            <div className="h-6 w-px bg-white/10 mx-2"></div>
+            <div className="flex items-center gap-2">
+              {['All', 'Passed', 'Failed', 'Pending'].map(status => (
+                <button
+                  key={status}
+                  onClick={() => setFilterStatus(status)}
+                  className={`px-3 py-1 rounded-sm text-[10px] font-bold uppercase tracking-widest transition-all ${filterStatus === status ? 'bg-white text-black' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="h-6 w-px bg-white/10 mx-2"></div>
-          <div className="flex items-center gap-2">
-            {['All', 'Passed', 'Failed', 'Pending'].map(status => (
-              <button
-                key={status}
-                onClick={() => setFilterStatus(status)}
-                className={`text-[10px] px-3 py-1 rounded-sm font-bold uppercase tracking-widest transition-all ${filterStatus === status ? 'bg-white text-black' : 'text-white/30 hover:text-white'}`}
-              >
-                {status}
-              </button>
-            ))}
-          </div>
-        </div>
+        )}
 
         <div className="flex-1 overflow-auto custom-scrollbar p-6 bg-black">
           {viewMode === 'dashboard' ? (
@@ -612,8 +655,19 @@ export default function App() {
               }}
               onRun={handleRunAutomation}
               onEdit={(tc) => { setEditingCase(tc); setIsCaseModalOpen(true); }}
-              onDelete={(id) => TestCaseService.delete(id)}
+              onDelete={(id) => {
+                setConfirmConfig({
+                  title: "Delete Test Case",
+                  message: "Are you sure you want to delete this test case permanently?",
+                  onConfirm: () => TestCaseService.delete(id)
+                });
+              }}
               onStatusUpdate={(id, status) => handleQuickStatusUpdate(id, status, 'functional')}
+              onMessage={(tc) => {
+                setActiveCommentCase({ id: tc.id, title: tc.title });
+                setIsCommentDrawerOpen(true);
+                if (user.uid === 'demo-user') setComments([]);
+              }}
             />
           ) : (
             <APITable
@@ -648,8 +702,19 @@ export default function App() {
                 setExecutingId(null);
               }}
               onEdit={(tc) => { setEditingAPICase(tc); setIsAPIModalOpen(true); }}
-              onDelete={(id) => APITestCaseService.delete(id)}
+              onDelete={(id) => {
+                setConfirmConfig({
+                  title: "Delete API Request",
+                  message: "Are you sure you want to delete this API request permanently?",
+                  onConfirm: () => APITestCaseService.delete(id)
+                });
+              }}
               onStatusUpdate={(id, status) => handleQuickStatusUpdate(id, status, 'api')}
+              onMessage={(tc) => {
+                setActiveCommentCase({ id: tc.id, title: tc.title });
+                setIsCommentDrawerOpen(true);
+                if (user.uid === 'demo-user') setComments([]);
+              }}
             />
           )}
         </div>
@@ -713,6 +778,26 @@ export default function App() {
         onClose={() => !executingId && setIsTerminalOpen(false)}
         logs={logs}
         executingId={executingId}
+      />
+      {confirmConfig && (
+        <ConfirmModal
+          isOpen={true}
+          onClose={() => setConfirmConfig(null)}
+          onConfirm={confirmConfig.onConfirm}
+          title={confirmConfig.title}
+          message={confirmConfig.message}
+        />
+      )}
+
+      <CommentsDrawer
+        isOpen={isCommentDrawerOpen}
+        onClose={() => setIsCommentDrawerOpen(false)}
+        testCaseId={activeCommentCase?.id || ''}
+        testCaseTitle={activeCommentCase?.title || ''}
+        comments={comments}
+        currentUser={user}
+        onAddComment={handleAddComment}
+        onDeleteComment={handleDeleteComment}
       />
     </div>
   );

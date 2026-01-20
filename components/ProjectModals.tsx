@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Check, Copy, Trash2, LogOut } from 'lucide-react';
+import { Check, Copy, Trash2, LogOut, Upload } from 'lucide-react';
 import Modal from './ui/Modal';
+import ConfirmModal from './ui/ConfirmModal';
 import { Project, COLORS, Module, ModalMode } from '../types';
 
 interface ProjectModalsProps {
@@ -20,18 +21,19 @@ interface ProjectModalsProps {
 const ProjectModals: React.FC<ProjectModalsProps> = ({
   mode, onClose, activeProject, user, modules, onSave, onJoin, onDelete, onAddModule, onUpdateModule, onDeleteModule
 }) => {
-  const [form, setForm] = useState({ name: '', color: COLORS[0] });
+  const [form, setForm] = useState({ name: '', color: COLORS[0], photoURL: '' });
   const [joinCode, setJoinCode] = useState('');
   const [newModName, setNewModName] = useState('');
   const [editingModId, setEditingModId] = useState<string | null>(null);
   const [editingModName, setEditingModName] = useState('');
   const [copied, setCopied] = useState(false);
+  const [confirmConfig, setConfirmConfig] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
 
   useEffect(() => {
     if (mode === 'edit' && activeProject) {
-      setForm({ name: activeProject.name, color: activeProject.color });
+      setForm({ name: activeProject.name, color: activeProject.color, photoURL: activeProject.photoURL || '' });
     } else {
-      setForm({ name: '', color: COLORS[0] });
+      setForm({ name: '', color: COLORS[0], photoURL: '' });
       setJoinCode('');
     }
   }, [mode, activeProject]);
@@ -54,6 +56,22 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
     if (!editingModName.trim()) return;
     await onUpdateModule(id, editingModName);
     setEditingModId(null);
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 500 * 1024) {
+      alert("Image is too large. Please upload an image smaller than 500KB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setForm(prev => ({ ...prev, photoURL: reader.result as string }));
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -98,6 +116,34 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
                 className="w-full bg-white/[0.03] border border-white/10 rounded-sm px-3 py-2.5 outline-none focus:border-white/20 transition-all text-xs text-white"
                 placeholder="Enter scope name..."
               />
+              <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest block mt-4">Profile Image</label>
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center bg-white/5 overflow-hidden relative group cursor-pointer"
+                  onClick={() => document.getElementById('project-image-upload')?.click()}
+                >
+                  {form.photoURL ? (
+                    <img src={form.photoURL} alt="Preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <Upload size={14} className="text-white/40 group-hover:text-white transition-colors" />
+                  )}
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Upload size={12} className="text-white" />
+                  </div>
+                </div>
+                <input
+                  id="project-image-upload"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageUpload}
+                />
+                <div className="text-[10px] text-white/30">
+                  <p>Max 500KB</p>
+                  {form.photoURL && <button onClick={() => setForm(prev => ({ ...prev, photoURL: '' }))} className="text-red-400 hover:text-red-300">Remove</button>}
+                </div>
+              </div>
+
               <button
                 onClick={handleSave}
                 className="w-full mt-4 bg-white text-black py-2.5 rounded-sm text-[11px] font-bold transition-all hover:bg-white/90 uppercase tracking-widest"
@@ -170,7 +216,13 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
                           {m.name}
                         </span>
                       )}
-                      <button onClick={() => onDeleteModule(m.id)} className="text-white/10 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 pr-1"><Trash2 size={12} /></button>
+                      <button onClick={() => {
+                        setConfirmConfig({
+                          title: "Delete Module",
+                          message: `Are you sure you want to delete the module "${m.name}"? This will likely cascade to related test cases.`,
+                          onConfirm: () => onDeleteModule(m.id)
+                        });
+                      }} className="text-white/10 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 pr-1"><Trash2 size={12} /></button>
                     </div>
                   ))}
                 </div>
@@ -180,14 +232,26 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
                 <label className="text-[10px] text-red-500/40 uppercase font-bold block mb-3 italic tracking-widest">Danger Zone</label>
                 {activeProject.owner === user.uid ? (
                   <button
-                    onClick={() => onDelete(activeProject.id, true)}
+                    onClick={() => {
+                      setConfirmConfig({
+                        title: "Delete Project",
+                        message: `Are you sure you want to permanently delete "${activeProject.name}"? This action CANNOT be undone.`,
+                        onConfirm: () => onDelete(activeProject.id, true)
+                      });
+                    }}
                     className="w-full flex items-center justify-center gap-2 py-3 border border-red-500/20 text-red-500 hover:text-white hover:bg-red-500 rounded-sm text-[11px] font-bold transition-all uppercase tracking-widest shadow-[0_0_15px_rgba(239,68,68,0.1)] hover:shadow-[0_0_25px_rgba(239,68,68,0.4)]"
                   >
                     <Trash2 size={14} /> DELETE PROJECT PERMANENTLY
                   </button>
                 ) : (
                   <button
-                    onClick={() => onDelete(activeProject.id, false)}
+                    onClick={() => {
+                      setConfirmConfig({
+                        title: "Leave Scope",
+                        message: `Are you sure you want to leave "${activeProject.name}"?`,
+                        onConfirm: () => onDelete(activeProject.id, false)
+                      });
+                    }}
                     className="w-full flex items-center justify-center gap-2 py-3 border border-red-500/10 text-red-500/60 hover:text-red-500 hover:bg-red-500/5 rounded-sm text-[11px] font-bold transition-all uppercase tracking-widest"
                   >
                     <LogOut size={14} /> Disconnect / Leave Scope
@@ -197,6 +261,15 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
             </>
           )}
         </div>
+      )}
+      {confirmConfig && (
+        <ConfirmModal
+          isOpen={true}
+          onClose={() => setConfirmConfig(null)}
+          onConfirm={confirmConfig.onConfirm}
+          title={confirmConfig.title}
+          message={confirmConfig.message}
+        />
       )}
     </Modal>
   );

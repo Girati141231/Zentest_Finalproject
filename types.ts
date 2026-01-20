@@ -7,6 +7,7 @@ export interface Project {
   color: string;
   initial: string;
   owner?: string;
+  photoURL?: string;
 }
 
 export interface Module {
@@ -28,6 +29,7 @@ export interface TestCase {
   hasAutomation: boolean;
   lastUpdatedBy?: string;
   lastUpdatedByName?: string;
+  lastUpdatedByPhoto?: string;
   timestamp?: number;
   round?: number;
 }
@@ -47,6 +49,7 @@ export interface APITestCase {
   expectedBody?: string;
   lastUpdatedBy?: string;
   lastUpdatedByName?: string;
+  lastUpdatedByPhoto?: string;
   timestamp?: number;
   round?: number;
 }
@@ -54,6 +57,17 @@ export interface APITestCase {
 export interface LogEntry {
   msg: string;
   type: 'info' | 'success' | 'error';
+}
+
+export interface Comment {
+  id: string;
+  testCaseId: string;
+  projectId: string;
+  userId: string;
+  userName: string;
+  userPhoto?: string;
+  content: string;
+  timestamp: number;
 }
 
 export type ModalMode = 'create' | 'edit' | 'join' | null;

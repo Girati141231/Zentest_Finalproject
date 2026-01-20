@@ -62,10 +62,14 @@ const Sidebar: React.FC<SidebarProps> = ({
             title={!isExpanded ? p.name : ''}
           >
             <div
-              className="w-6 h-6 rounded-sm flex items-center justify-center flex-shrink-0 font-bold text-[10px]"
+              className="w-6 h-6 rounded-sm flex items-center justify-center flex-shrink-0 font-bold text-[10px] overflow-hidden"
               style={{ backgroundColor: `${p.color}20`, color: p.color, boxShadow: activeProjectId === p.id ? `0 0 10px ${p.color}40` : 'none' }}
             >
-              {p.initial}
+              {p.photoURL ? (
+                <img src={p.photoURL} alt={p.name} className="w-full h-full object-cover" />
+              ) : (
+                p.initial
+              )}
             </div>
             {isExpanded && (
               <span className="font-medium truncate text-xs animate-in fade-in duration-300 text-left flex-1">
