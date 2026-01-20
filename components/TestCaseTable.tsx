@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  Square, CheckSquare, ListOrdered, RefreshCcw, Play, Edit3, Trash2
+  Square, CheckSquare, ListOrdered, RefreshCcw, Play, Edit3, Trash2, CheckCircle2, XCircle
 } from 'lucide-react';
 import Badge from './ui/Badge';
 import { TestCase } from '../types';
@@ -15,6 +15,7 @@ interface TestCaseTableProps {
   onRun: (tc: TestCase) => void;
   onEdit: (tc: TestCase) => void;
   onDelete: (id: string) => void;
+  onStatusUpdate: (id: string, status: 'Passed' | 'Failed') => void;
 }
 
 const TestCaseTable: React.FC<TestCaseTableProps> = ({
@@ -26,7 +27,8 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
   onToggleSelectAll,
   onRun,
   onEdit,
-  onDelete
+  onDelete,
+  onStatusUpdate
 }) => {
   return (
     <div className="border border-white/10 rounded-sm overflow-hidden bg-[#050505]">
@@ -42,11 +44,12 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
             <th className="px-4 py-3 font-bold">Scenario</th>
             <th className="px-4 py-3 font-bold w-32">Steps</th>
             <th className="px-4 py-3 font-bold w-32">Module</th>
+            <th className="px-4 py-3 font-bold w-16 text-center">Round</th>
             <th className="px-4 py-3 font-bold w-24">Priority</th>
             <th className="px-4 py-3 font-bold w-24">Status</th>
             <th className="px-4 py-3 font-bold w-16 text-center">Auto</th>
             <th className="px-4 py-3 font-bold w-32 border-l border-white/5">Update By</th>
-            <th className="px-4 py-3 w-20 text-center">Actions</th>
+            <th className="px-4 py-3 w-32 text-center">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-white/5">
@@ -75,6 +78,7 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
                 </div>
               </td>
               <td className="px-4 py-3"><Badge>{c.module || 'Unassigned'}</Badge></td>
+              <td className="px-4 py-3 text-center text-xs font-mono text-white/50">{c.round || 1}</td>
               <td className="px-4 py-3"><Badge variant={c.priority}>{c.priority}</Badge></td>
               <td className="px-4 py-3"><Badge variant={c.status}>{c.status}</Badge></td>
               <td className="px-4 py-3 text-center">
@@ -100,6 +104,21 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
               </td>
               <td className="px-4 py-3 text-right">
                 <div className="flex items-center justify-center gap-1">
+                  <button
+                    onClick={() => onStatusUpdate(c.id, 'Passed')}
+                    className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/20 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all"
+                    title="Mark Passed"
+                  >
+                    <CheckCircle2 size={14} />
+                  </button>
+                  <button
+                    onClick={() => onStatusUpdate(c.id, 'Failed')}
+                    className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                    title="Mark Failed"
+                  >
+                    <XCircle size={14} />
+                  </button>
+                  <div className="w-px h-4 bg-white/10 mx-1"></div>
                   <button
                     onClick={() => onEdit(c)}
                     className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/30 hover:text-blue-400 hover:border-blue-400/20 hover:bg-blue-400/10 transition-all"

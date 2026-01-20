@@ -8,7 +8,7 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { db, appId, isConfigured } from '../firebase';
-import { Project, TestCase, Module } from '../types';
+import { Project, TestCase, Module, APITestCase } from '../types';
 
 // Paths
 const PUBLIC_DATA_PATH = ['artifacts', appId, 'public', 'data'];
@@ -125,5 +125,42 @@ export const ModuleService = {
   delete: async (id: string) => {
     if (!isConfigured) { await delay(300); return; }
     await deleteDoc(doc(db, PUBLIC_DATA_PATH[0], PUBLIC_DATA_PATH[1], PUBLIC_DATA_PATH[2], PUBLIC_DATA_PATH[3], 'modules', id));
+  }
+};
+
+export const APITestCaseService = {
+  save: async (data: Partial<APITestCase>, isNew: boolean, user: any) => {
+    if (!isConfigured) { await delay(400); return; }
+    const timestamp = Date.now();
+    const audit = {
+      lastUpdatedBy: user?.uid,
+      lastUpdatedByName: user?.displayName || 'Unknown',
+      timestamp
+    };
+
+    if (isNew) {
+      const idStr = `API-${Math.floor(1000 + Math.random() * 9000)}`;
+      const payload = { ...data, id: idStr, ...audit };
+      await setDoc(doc(db, PUBLIC_DATA_PATH[0], PUBLIC_DATA_PATH[1], PUBLIC_DATA_PATH[2], PUBLIC_DATA_PATH[3], 'apiTestCases', idStr), payload);
+    } else {
+      if (!data.id) return;
+      const payload = { ...data, ...audit };
+      await updateDoc(doc(db, PUBLIC_DATA_PATH[0], PUBLIC_DATA_PATH[1], PUBLIC_DATA_PATH[2], PUBLIC_DATA_PATH[3], 'apiTestCases', data.id), payload);
+    }
+  },
+
+  delete: async (id: string) => {
+    if (!isConfigured) { await delay(300); return; }
+    await deleteDoc(doc(db, PUBLIC_DATA_PATH[0], PUBLIC_DATA_PATH[1], PUBLIC_DATA_PATH[2], PUBLIC_DATA_PATH[3], 'apiTestCases', id));
+  },
+
+  updateStatus: async (id: string, status: string, user: any) => {
+    if (!isConfigured) { await delay(200); return; }
+    await updateDoc(doc(db, PUBLIC_DATA_PATH[0], PUBLIC_DATA_PATH[1], PUBLIC_DATA_PATH[2], PUBLIC_DATA_PATH[3], 'apiTestCases', id), {
+      status,
+      lastUpdatedBy: user?.uid,
+      lastUpdatedByName: user?.displayName || 'Unknown',
+      timestamp: Date.now()
+    });
   }
 };

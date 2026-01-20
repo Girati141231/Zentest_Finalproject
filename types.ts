@@ -26,9 +26,29 @@ export interface TestCase {
   expected: string;
   script: string;
   hasAutomation: boolean;
-  timestamp?: number;
   lastUpdatedBy?: string;
   lastUpdatedByName?: string;
+  timestamp?: number;
+  round?: number;
+}
+
+export interface APITestCase {
+  id: string;
+  projectId: string;
+  title: string;
+  module: string;
+  priority: Priority;
+  status: Status;
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+  url: string;
+  headers?: { key: string; value: string }[];
+  body?: string;
+  expectedStatus: number;
+  expectedBody?: string;
+  lastUpdatedBy?: string;
+  lastUpdatedByName?: string;
+  timestamp?: number;
+  round?: number;
 }
 
 export interface LogEntry {
