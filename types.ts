@@ -27,6 +27,7 @@ export interface TestCase {
   expected: string;
   script: string;
   hasAutomation: boolean;
+  automationSteps?: any[];
   lastUpdatedBy?: string;
   lastUpdatedByName?: string;
   lastUpdatedByPhoto?: string;
