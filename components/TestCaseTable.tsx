@@ -150,14 +150,14 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
                 <div className="flex items-center justify-center gap-2">
                   <button
                     onClick={() => onStatusUpdate(c.id, 'Passed')}
-                    className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/20 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all opacity-40 group-hover:opacity-100"
+                    className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/50 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all"
                     title="Mark Passed"
                   >
                     <CheckCircle2 size={16} />
                   </button>
                   <button
                     onClick={() => onStatusUpdate(c.id, 'Failed')}
-                    className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-all opacity-40 group-hover:opacity-100"
+                    className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/50 hover:text-red-400 hover:bg-red-500/10 transition-all"
                     title="Mark Failed"
                   >
                     <XCircle size={16} />
@@ -167,7 +167,7 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
 
                   <button
                     onClick={() => onMessage(c)}
-                    className="flex items-center justify-center w-8 h-8 rounded-full border border-white/5 bg-white/[0.02] text-white/40 hover:text-blue-400 hover:bg-blue-500/10 hover:border-blue-500/20 transition-all shadow-sm"
+                    className="flex items-center justify-center w-8 h-8 rounded-full border border-white/5 bg-white/[0.02] text-white/60 hover:text-blue-400 hover:bg-blue-500/10 hover:border-blue-500/20 transition-all shadow-sm"
                     title="Comments"
                   >
                     <MessageSquare size={14} />
@@ -175,14 +175,14 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
 
                   <button
                     onClick={() => onEdit(c)}
-                    className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/30 hover:text-white transition-all opacity-40 group-hover:opacity-100"
+                    className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/60 hover:text-white transition-all"
                   >
                     <Edit3 size={14} />
                   </button>
 
                   <button
                     onClick={() => onDelete(c.id)}
-                    className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/10 hover:text-red-500 hover:border-red-500/20 hover:bg-red-500/5 opacity-0 group-hover:opacity-100 transition-all"
+                    className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/50 hover:text-red-500 hover:border-red-500/20 hover:bg-red-500/5 transition-all"
                   >
                     <Trash2 size={14} />
                   </button>

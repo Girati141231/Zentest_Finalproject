@@ -50,6 +50,7 @@ const APITable: React.FC<APITableProps> = ({
                                 {cases.length > 0 && selectedIds.size === cases.length ? <CheckSquare size={16} /> : <Square size={16} className="opacity-30" />}
                             </button>
                         </th>
+                        <th className="px-4 py-3 font-bold w-28">ID</th>
                         <th className="px-4 py-3 font-bold w-20">Method</th>
                         <th className="px-4 py-3 font-bold">Endpoint / Description</th>
                         <th className="px-4 py-3 font-bold w-32">Module</th>
@@ -68,19 +69,22 @@ const APITable: React.FC<APITableProps> = ({
                                     {selectedIds.has(c.id) ? <CheckSquare size={16} /> : <Square size={16} />}
                                 </button>
                             </td>
+                            <td className="px-4 py-4 text-white/30 font-mono text-[10px] font-bold">{c.id}</td>
                             <td className="px-4 py-4">
                                 <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${METHOD_COLORS[c.method] || 'text-white/50'}`}>
                                     {c.method}
                                 </span>
                             </td>
                             <td className="px-4 py-4">
-                                <div className="flex flex-col gap-1">
-                                    <div className="text-white text-sm font-medium max-w-[350px] truncate group-hover:text-blue-400 transition-colors flex items-center gap-2">
+                                <div className="flex items-center gap-3">
+                                    <div className="text-white text-sm font-medium truncate max-w-[200px] group-hover:text-blue-400 transition-colors flex items-center gap-2">
                                         <Globe size={12} className="text-white/20" /> {c.url}
                                     </div>
-                                    <div className="text-[10px] text-white/40 truncate max-w-[350px]">
-                                        {c.title}
-                                    </div>
+                                    {c.title && (
+                                        <div className="text-[10px] text-white/40 truncate max-w-[200px] border-l border-white/10 pl-3">
+                                            {c.title}
+                                        </div>
+                                    )}
                                 </div>
                             </td>
                             <td className="px-4 py-3"><Badge>{c.module || 'Unassigned'}</Badge></td>
@@ -125,14 +129,14 @@ const APITable: React.FC<APITableProps> = ({
                                 <div className="flex items-center justify-center gap-2">
                                     <button
                                         onClick={() => onStatusUpdate(c.id, 'Passed')}
-                                        className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/20 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all opacity-40 group-hover:opacity-100"
+                                        className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/50 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all"
                                         title="Mark Passed"
                                     >
                                         <CheckCircle2 size={16} />
                                     </button>
                                     <button
                                         onClick={() => onStatusUpdate(c.id, 'Failed')}
-                                        className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-all opacity-40 group-hover:opacity-100"
+                                        className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/50 hover:text-red-400 hover:bg-red-500/10 transition-all"
                                         title="Mark Failed"
                                     >
                                         <XCircle size={16} />
@@ -142,7 +146,7 @@ const APITable: React.FC<APITableProps> = ({
 
                                     <button
                                         onClick={() => onMessage(c)}
-                                        className="flex items-center justify-center w-8 h-8 rounded-full border border-white/5 bg-white/[0.02] text-white/40 hover:text-blue-400 hover:bg-blue-500/10 hover:border-blue-500/20 transition-all shadow-sm"
+                                        className="flex items-center justify-center w-8 h-8 rounded-full border border-white/5 bg-white/[0.02] text-white/60 hover:text-blue-400 hover:bg-blue-500/10 hover:border-blue-500/20 transition-all shadow-sm"
                                         title="Comments"
                                     >
                                         <MessageSquare size={14} />
@@ -150,13 +154,13 @@ const APITable: React.FC<APITableProps> = ({
 
                                     <button
                                         onClick={() => onEdit(c)}
-                                        className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/30 hover:text-white transition-all opacity-40 group-hover:opacity-100"
+                                        className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/60 hover:text-white transition-all"
                                     >
                                         <Edit3 size={14} />
                                     </button>
                                     <button
                                         onClick={() => onDelete(c.id)}
-                                        className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/10 hover:text-red-500 hover:border-red-500/20 hover:bg-red-500/5 opacity-0 group-hover:opacity-100 transition-all"
+                                        className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/50 hover:text-red-500 hover:border-red-500/20 hover:bg-red-500/5 transition-all"
                                     >
                                         <Trash2 size={14} />
                                     </button>
@@ -165,7 +169,7 @@ const APITable: React.FC<APITableProps> = ({
                         </tr>
                     )) : (
                         <tr>
-                            <td colSpan={9} className="px-4 py-24 text-center">
+                            <td colSpan={10} className="px-4 py-24 text-center">
                                 <div className="flex flex-col items-center gap-3 opacity-20">
                                     <Activity size={48} strokeWidth={1} />
                                     <span className="text-xs uppercase tracking-widest font-bold">

@@ -76,6 +76,10 @@ export default function App() {
   const [viewMode, setViewMode] = useState<'functional' | 'api' | 'dashboard'>('dashboard');
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('All');
+  const [filterModule, setFilterModule] = useState<string>('All');
+  const [filterPriority, setFilterPriority] = useState<string>('All');
+  const [filterAutomation, setFilterAutomation] = useState<boolean>(false);
+  const [filterUser, setFilterUser] = useState<string>('All');
 
   // Modals
   const [isCaseModalOpen, setIsCaseModalOpen] = useState(false);
@@ -221,12 +225,43 @@ export default function App() {
   const activeProject = useMemo(() => projects.find(p => p.id === activeProjectId), [projects, activeProjectId]);
   const projectModules = useMemo(() => modules, [modules]);
 
+  // Filters
+  const filterLogic = (c: TestCase | APITestCase) => {
+    const matchesSearch = c.title.toLowerCase().includes(search.toLowerCase()) ||
+      (c as any).url?.toLowerCase().includes(search.toLowerCase()) ||
+      c.id.toLowerCase().includes(search.toLowerCase());
+    const matchesStatus = filterStatus === 'All' || c.status === filterStatus;
+    const matchesModule = filterModule === 'All' || c.module === filterModule;
+    const matchesPriority = filterPriority === 'All' || c.priority === filterPriority;
+    const matchesAutomation = !filterAutomation || (c as any).hasAutomation; // Only applies to functional really, or custom logic
+    const matchesUser = filterUser === 'All' || c.lastUpdatedByName === filterUser;
+
+    return matchesSearch && matchesStatus && matchesModule && matchesPriority && matchesAutomation && matchesUser;
+  };
+
   const filteredCases = useMemo(() => {
-    return testCases.filter(c =>
-      (c.title.toLowerCase().includes(search.toLowerCase()) || c.id.toLowerCase().includes(search.toLowerCase())) &&
-      (filterStatus === 'All' || c.status === filterStatus)
-    );
-  }, [testCases, search, filterStatus]);
+    return testCases.filter(filterLogic);
+  }, [testCases, search, filterStatus, filterModule, filterPriority, filterAutomation, filterUser]);
+
+  const filteredApiCases = useMemo(() => {
+    return apiTestCases.filter(filterLogic);
+  }, [apiTestCases, search, filterStatus, filterModule, filterPriority, filterAutomation, filterUser]);
+
+  const clearFilters = () => {
+    setFilterModule('All');
+    setFilterPriority('All');
+    setFilterStatus('All');
+    setFilterUser('All');
+    setFilterAutomation(false);
+    setSearch('');
+  };
+
+  // Unique Users for Dropdown
+  const uniqueUsers = useMemo(() => {
+    const all = [...testCases, ...apiTestCases];
+    const users = new Set(all.map(c => c.lastUpdatedByName).filter(Boolean));
+    return Array.from(users);
+  }, [testCases, apiTestCases]);
 
   const log = (msg: string, type: 'info' | 'success' | 'error' = 'info') => {
     setLogs(prev => [...prev, { msg: `[${new Date().toLocaleTimeString()}] ${msg}`, type }]);
@@ -240,9 +275,9 @@ export default function App() {
     let filenamePrefix = 'export';
 
     if (viewMode === 'functional') {
-      if (!testCases.length) return;
+      if (!filteredCases.length) return;
       headers = ['ID', 'Module', 'Title', 'Round', 'Priority', 'Status', 'Steps', 'Expected Result', 'Has Automation'];
-      rows = testCases.map(tc => [
+      rows = filteredCases.map(tc => [
         tc.id,
         tc.module || 'Unassigned',
         `"${tc.title.replace(/"/g, '""')}"`,
@@ -254,10 +289,10 @@ export default function App() {
         tc.hasAutomation ? 'Yes' : 'No'
       ]);
       filenamePrefix = 'functional';
-    } else {
-      if (!apiTestCases.length) return;
+    } else if (viewMode === 'api') {
+      if (!filteredApiCases.length) return;
       headers = ['ID', 'Module', 'Title', 'Method', 'URL', 'Round', 'Status', 'Expected Status', 'Headers', 'Body'];
-      rows = apiTestCases.map(tc => [
+      rows = filteredApiCases.map(tc => [
         tc.id,
         tc.module || 'Unassigned',
         `"${tc.title.replace(/"/g, '""')}"`,
@@ -613,7 +648,7 @@ export default function App() {
                 <Globe size={12} /> API Tests
               </button>
             </div>
-            {((viewMode === 'functional' && testCases.length > 0) || (viewMode === 'api' && apiTestCases.length > 0)) && (
+            {((viewMode === 'functional' && filteredCases.length > 0) || (viewMode === 'api' && filteredApiCases.length > 0)) && (
               <button
                 onClick={handleExportCSV}
                 className="text-white/40 hover:text-white px-3 py-2 rounded-sm text-xs font-bold transition-all flex items-center gap-2 border border-transparent hover:border-white/10 hover:bg-white/5"
@@ -663,16 +698,72 @@ export default function App() {
               />
             </div>
             <div className="h-6 w-px bg-white/10 mx-2"></div>
-            <div className="flex items-center gap-2">
-              {['All', 'Passed', 'Failed', 'Pending'].map(status => (
+            {/* Advanced Filter Bar */}
+            <div className="flex items-center gap-3">
+              {/* Module Filter */}
+              <select
+                value={filterModule}
+                onChange={(e) => setFilterModule(e.target.value)}
+                className="bg-zinc-900 border border-white/10 text-[10px] text-white/70 rounded px-2 py-1 outline-none focus:border-white/20 custom-select uppercase font-bold tracking-wider"
+              >
+                <option value="All">All Modules</option>
+                {modules.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+              </select>
+
+              {/* Priority Filter */}
+              <select
+                value={filterPriority}
+                onChange={(e) => setFilterPriority(e.target.value)}
+                className="bg-zinc-900 border border-white/10 text-[10px] text-white/70 rounded px-2 py-1 outline-none focus:border-white/20 custom-select uppercase font-bold tracking-wider"
+              >
+                <option value="All">All Priorities</option>
+                <option value="Critical">Critical</option>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+
+              {/* Status Filter */}
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="bg-zinc-900 border border-white/10 text-[10px] text-white/70 rounded px-2 py-1 outline-none focus:border-white/20 custom-select uppercase font-bold tracking-wider"
+              >
+                <option value="All">All Statuses</option>
+                <option value="Passed">Passed</option>
+                <option value="Failed">Failed</option>
+                <option value="Pending">Pending</option>
+              </select>
+
+              {/* User Filter */}
+              <select
+                value={filterUser}
+                onChange={(e) => setFilterUser(e.target.value)}
+                className="bg-zinc-900 border border-white/10 text-[10px] text-white/70 rounded px-2 py-1 outline-none focus:border-white/20 custom-select uppercase font-bold tracking-wider"
+              >
+                <option value="All">All Users</option>
+                {uniqueUsers.map(u => <option key={u} value={u as string}>{u}</option>)}
+              </select>
+
+              {/* Automation Toggle */}
+              <button
+                onClick={() => setFilterAutomation(!filterAutomation)}
+                className={`flex items-center gap-2 px-3 py-1 rounded border text-[10px] font-bold uppercase tracking-widest transition-all ${filterAutomation ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-transparent border-white/10 text-white/40 hover:text-white'}`}
+              >
+                <div className={`w-2 h-2 rounded-full ${filterAutomation ? 'bg-blue-400' : 'bg-zinc-600'}`} />
+                Autoable?
+              </button>
+
+              {(filterModule !== 'All' || filterPriority !== 'All' || filterStatus !== 'All' || filterUser !== 'All' || filterAutomation || search) && (
                 <button
-                  key={status}
-                  onClick={() => setFilterStatus(status)}
-                  className={`px-3 py-1 rounded-sm text-[10px] font-bold uppercase tracking-widest transition-all ${filterStatus === status ? 'bg-white text-black' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+                  onClick={clearFilters}
+                  className="w-6 h-6 flex items-center justify-center rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all ml-1"
+                  title="Clear Filters"
                 >
-                  {status}
+                  <Search size={10} className="hidden" /> {/* Dummy to keep import used if needed, or better use X or Trash */}
+                  <span className="text-[10px]">&times;</span>
                 </button>
-              ))}
+              )}
             </div>
           </div>
         )}
@@ -712,10 +803,7 @@ export default function App() {
             />
           ) : (
             <APITable
-              cases={apiTestCases.filter(c =>
-                (c.title.toLowerCase().includes(search.toLowerCase()) || c.url.toLowerCase().includes(search.toLowerCase())) &&
-                (filterStatus === 'All' || c.status === filterStatus)
-              )}
+              cases={filteredApiCases}
               selectedIds={selectedIds}
               executingId={executingId}
               activeProjectId={activeProjectId}
