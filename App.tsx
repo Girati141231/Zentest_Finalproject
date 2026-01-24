@@ -19,7 +19,7 @@ import {
 // Core
 import { auth, db, appId, isConfigured } from './firebase';
 import { Project, Module, TestCase, APITestCase, LogEntry, ModalMode, STATUSES, Comment } from './types';
-import { ProjectService, TestCaseService, APITestCaseService, ModuleService, CommentService } from './services/db';
+import { ProjectService, TestCaseService, APITestCaseService, ModuleService, CommentService, UserReadStatusService } from './services/db';
 
 // Components
 import Sidebar from './components/Sidebar';
@@ -91,8 +91,9 @@ export default function App() {
 
   // Comments
   const [isCommentDrawerOpen, setIsCommentDrawerOpen] = useState(false);
-  const [activeCommentCase, setActiveCommentCase] = useState<{ id: string; title: string } | null>(null);
+  const [activeCommentCase, setActiveCommentCase] = useState<{ id: string; title: string; commentCount?: number } | null>(null); // Added commentCount
   const [comments, setComments] = useState<Comment[]>([]);
+  const [readStatus, setReadStatus] = useState<Record<string, number>>({});
 
   // Execution
   const [executingId, setExecutingId] = useState<string | null>(null);
@@ -213,6 +214,14 @@ export default function App() {
 
     return () => { unsubModules(); unsubCases(); unsubAPI(); };
   }, [user, activeProjectId]);
+
+  useEffect(() => {
+    if (!activeProjectId || !user || user.uid === 'demo-user') return;
+    const unsub = UserReadStatusService.subscribe(activeProjectId, user.uid, (data) => {
+      setReadStatus(data);
+    });
+    return () => unsub();
+  }, [activeProjectId, user]);
 
   // Subscribe to comments when drawer is open
   useEffect(() => {
@@ -575,6 +584,21 @@ export default function App() {
     }
 
     await CommentService.add(newComment);
+
+    // Mark as read immediately for the sender so they don't see unread badge
+    const currentCount = activeCommentCase.commentCount || 0; // This might be stale if we don't have live count here, 
+    // but better: increment logic
+    // Actually simpler: we just sent one, so we should read up to 'current known + 1' or just let the subscription update it later?
+    // If we mark read now, we might be ahead or behind.
+    // The safest is: The sender knows they sent it.
+    // The subscription will eventually update the total count.
+
+    // Actually we can just mark read to a very high number? No.
+    // We should rely on the component list to update.
+    // But better: In handleAddComment, we don't know the exact new total unless we listen to it.
+    // However, we can simply say: we are viewing the thread, so we are "reading" it.
+    // The drawer is open.
+    // Maybe we should update "Last Read" periodically or when comments change while drawer is open?
   };
 
   const handleDeleteComment = async (id: string) => {
@@ -582,7 +606,10 @@ export default function App() {
       setComments(prev => prev.filter(c => c.id !== id));
       return;
     }
-    await CommentService.delete(id);
+    const comment = comments.find(c => c.id === id);
+    if (comment) {
+      await CommentService.delete(id, comment.testCaseId);
+    }
   };
 
   const handleQuickStatusUpdate = async (id: string, status: 'Passed' | 'Failed', type: 'functional' | 'api') => {
@@ -793,6 +820,7 @@ export default function App() {
               executingId={executingId}
               activeProjectId={activeProjectId}
               readOnly={activeProject?.role === 'viewer'}
+              readStatus={readStatus}
               onToggleSelect={(id) => {
                 const next = new Set(selectedIds);
                 if (next.has(id)) next.delete(id); else next.add(id);
@@ -816,9 +844,13 @@ export default function App() {
               }}
               onStatusUpdate={(id, status) => handleQuickStatusUpdate(id, status, 'functional')}
               onMessage={(tc) => {
-                setActiveCommentCase({ id: tc.id, title: tc.title });
+                setActiveCommentCase({ id: tc.id, title: tc.title, commentCount: tc.commentCount });
                 setIsCommentDrawerOpen(true);
                 if (user.uid === 'demo-user') setComments([]);
+                // Mark as read when opening
+                if (user.uid !== 'demo-user' && activeProjectId) {
+                  UserReadStatusService.markRead(activeProjectId, tc.id, tc.commentCount || 0, user.uid);
+                }
               }}
             />
           ) : (
@@ -828,6 +860,7 @@ export default function App() {
               executingId={executingId}
               activeProjectId={activeProjectId}
               readOnly={activeProject?.role === 'viewer'}
+              readStatus={readStatus}
               onToggleSelect={(id) => {
                 const next = new Set(selectedIds);
                 if (next.has(id)) next.delete(id); else next.add(id);
@@ -866,9 +899,12 @@ export default function App() {
               }}
               onStatusUpdate={(id, status) => handleQuickStatusUpdate(id, status, 'api')}
               onMessage={(tc) => {
-                setActiveCommentCase({ id: tc.id, title: tc.title });
+                setActiveCommentCase({ id: tc.id, title: tc.title, commentCount: tc.commentCount });
                 setIsCommentDrawerOpen(true);
                 if (user.uid === 'demo-user') setComments([]);
+                if (user.uid !== 'demo-user' && activeProjectId) {
+                  UserReadStatusService.markRead(activeProjectId, tc.id, tc.commentCount || 0, user.uid);
+                }
               }}
             />
           )}

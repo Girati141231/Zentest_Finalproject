@@ -18,6 +18,7 @@ interface APITableProps {
     onStatusUpdate: (id: string, status: 'Passed' | 'Failed') => void;
     onMessage: (tc: APITestCase) => void;
     readOnly?: boolean;
+    readStatus?: Record<string, number>;
 }
 
 const METHOD_COLORS = {
@@ -40,7 +41,8 @@ const APITable: React.FC<APITableProps> = ({
     onDelete,
     onStatusUpdate,
     onMessage,
-    readOnly = false
+    readOnly = false,
+    readStatus = {}
 }) => {
     return (
         <div className="border border-white/10 rounded-sm overflow-hidden bg-[#050505]">
@@ -156,11 +158,17 @@ const APITable: React.FC<APITableProps> = ({
                                         title="Comments"
                                     >
                                         <MessageSquare size={14} />
-                                        {c.commentCount && c.commentCount > 0 ? (
-                                            <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-[8px] font-bold px-1 rounded-full min-w-[14px] h-[14px] flex items-center justify-center border border-[#050505] shadow-sm">
-                                                {c.commentCount}
-                                            </span>
-                                        ) : null}
+                                        {(() => {
+                                            const total = c.commentCount || 0;
+                                            const read = readStatus[c.id] || 0;
+                                            const unread = total - read;
+
+                                            return unread > 0 ? (
+                                                <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-[8px] font-bold px-1 rounded-full min-w-[14px] h-[14px] flex items-center justify-center border border-[#050505] shadow-sm">
+                                                    {unread}
+                                                </span>
+                                            ) : null;
+                                        })()}
                                     </button>
 
                                     {!readOnly && (

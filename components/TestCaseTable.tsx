@@ -18,6 +18,7 @@ interface TestCaseTableProps {
   onStatusUpdate: (id: string, status: 'Passed' | 'Failed') => void;
   onMessage: (tc: TestCase) => void;
   readOnly?: boolean;
+  readStatus?: Record<string, number>;
 }
 
 const TestCaseTable: React.FC<TestCaseTableProps> = ({
@@ -32,7 +33,8 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
   onDelete,
   onStatusUpdate,
   onMessage,
-  readOnly = false
+  readOnly = false,
+  readStatus = {}
 }) => {
   const [expandedSteps, setExpandedSteps] = React.useState<Set<string>>(new Set());
 
@@ -176,11 +178,17 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
                     title="Comments"
                   >
                     <MessageSquare size={14} />
-                    {c.commentCount && c.commentCount > 0 ? (
-                      <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-[8px] font-bold px-1 rounded-full min-w-[14px] h-[14px] flex items-center justify-center border border-[#050505] shadow-sm">
-                        {c.commentCount}
-                      </span>
-                    ) : null}
+                    {(() => {
+                      const total = c.commentCount || 0;
+                      const read = readStatus[c.id] || 0;
+                      const unread = total - read;
+
+                      return unread > 0 ? (
+                        <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-[8px] font-bold px-1 rounded-full min-w-[14px] h-[14px] flex items-center justify-center border border-[#050505] shadow-sm">
+                          {unread}
+                        </span>
+                      ) : null;
+                    })()}
                   </button>
 
                   {!readOnly && (

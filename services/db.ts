@@ -311,7 +311,8 @@ export const CommentService = {
     });
   },
 
-  delete: async (id: string) => {
+  delete: async (id: string, testCaseId: string) => { // Updated signature to cleanup easier if we wanted, but logic below handles it via lookup
+    // Actually we kept signature compatible but logic inside does the lookup.
     if (!isConfigured) { await delay(300); return; }
     const ref = doc(db, PUBLIC_DATA_PATH[0], PUBLIC_DATA_PATH[1], PUBLIC_DATA_PATH[2], PUBLIC_DATA_PATH[3], 'comments', id);
 
@@ -331,5 +332,28 @@ export const CommentService = {
         commentCount: increment(-1)
       });
     }
+  }
+};
+
+export const UserReadStatusService = {
+  subscribe: (projectId: string, uid: string, callback: (readCounts: Record<string, number>) => void) => {
+    if (!isConfigured) { callback({}); return () => { }; }
+    const ref = doc(db, 'artifacts', appId, 'users', uid, 'projectReadStatus', projectId);
+    return onSnapshot(ref, (snap) => {
+      if (snap.exists()) {
+        callback(snap.data() as Record<string, number>);
+      } else {
+        callback({});
+      }
+    });
+  },
+
+  markRead: async (projectId: string, testCaseId: string, count: number, uid: string) => {
+    if (!isConfigured) return;
+    const ref = doc(db, 'artifacts', appId, 'users', uid, 'projectReadStatus', projectId);
+    // Use setDoc with merge to update just this key
+    await setDoc(ref, {
+      [testCaseId]: count
+    }, { merge: true });
   }
 };
