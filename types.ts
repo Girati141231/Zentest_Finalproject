@@ -45,6 +45,7 @@ export interface TestCase {
   lastUpdatedByPhoto?: string;
   timestamp?: number;
   round?: number;
+  commentCount?: number;
 }
 
 export interface APITestCase {
@@ -65,6 +66,7 @@ export interface APITestCase {
   lastUpdatedByPhoto?: string;
   timestamp?: number;
   round?: number;
+  commentCount?: number;
 }
 
 export interface LogEntry {

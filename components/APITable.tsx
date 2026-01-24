@@ -152,10 +152,15 @@ const APITable: React.FC<APITableProps> = ({
 
                                     <button
                                         onClick={() => onMessage(c)}
-                                        className="flex items-center justify-center w-8 h-8 rounded-full border border-white/5 bg-white/[0.02] text-white/60 hover:text-blue-400 hover:bg-blue-500/10 hover:border-blue-500/20 transition-all shadow-sm"
+                                        className="relative flex items-center justify-center w-8 h-8 rounded-full border border-white/5 bg-white/[0.02] text-white/60 hover:text-blue-400 hover:bg-blue-500/10 hover:border-blue-500/20 transition-all shadow-sm"
                                         title="Comments"
                                     >
                                         <MessageSquare size={14} />
+                                        {c.commentCount && c.commentCount > 0 ? (
+                                            <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-[8px] font-bold px-1 rounded-full min-w-[14px] h-[14px] flex items-center justify-center border border-[#050505] shadow-sm">
+                                                {c.commentCount}
+                                            </span>
+                                        ) : null}
                                     </button>
 
                                     {!readOnly && (

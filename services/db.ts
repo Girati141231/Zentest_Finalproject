@@ -12,7 +12,9 @@ import {
   getDocs,
   limit,
   orderBy,
-  QueryConstraint
+  QueryConstraint,
+  increment,
+  getDoc
 } from 'firebase/firestore';
 import { db, appId, isConfigured } from '../firebase';
 import { Project, TestCase, Module, APITestCase, Comment } from '../types';
@@ -297,12 +299,37 @@ export const CommentService = {
 
   add: async (comment: Omit<Comment, 'id'>) => {
     if (!isConfigured) { await delay(300); return; }
+
+    // 1. Add Comment
     await addDoc(collection(db, PUBLIC_DATA_PATH[0], PUBLIC_DATA_PATH[1], PUBLIC_DATA_PATH[2], PUBLIC_DATA_PATH[3], 'comments'), comment);
+
+    // 2. Increment Count on Parent
+    const parentCollection = comment.testCaseId.startsWith('API-') ? 'apiTestCases' : 'testCases';
+    const parentRef = doc(db, PUBLIC_DATA_PATH[0], PUBLIC_DATA_PATH[1], PUBLIC_DATA_PATH[2], PUBLIC_DATA_PATH[3], parentCollection, comment.testCaseId);
+    await updateDoc(parentRef, {
+      commentCount: increment(1)
+    });
   },
 
   delete: async (id: string) => {
     if (!isConfigured) { await delay(300); return; }
     const ref = doc(db, PUBLIC_DATA_PATH[0], PUBLIC_DATA_PATH[1], PUBLIC_DATA_PATH[2], PUBLIC_DATA_PATH[3], 'comments', id);
+
+    // 1. Get comment to know parent
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return;
+    const data = snap.data() as Comment;
+
+    // 2. Delete
     await deleteDoc(ref);
+
+    // 3. Decrement Parent
+    if (data.testCaseId) {
+      const parentCollection = data.testCaseId.startsWith('API-') ? 'apiTestCases' : 'testCases';
+      const parentRef = doc(db, PUBLIC_DATA_PATH[0], PUBLIC_DATA_PATH[1], PUBLIC_DATA_PATH[2], PUBLIC_DATA_PATH[3], parentCollection, data.testCaseId);
+      await updateDoc(parentRef, {
+        commentCount: increment(-1)
+      });
+    }
   }
 };
