@@ -145,7 +145,13 @@ export default function App() {
 
     const myProjectsRef = collection(db, 'artifacts', appId, 'users', user.uid, 'myProjects');
     const unsubMyProjects = onSnapshot(myProjectsRef, (snapshot) => {
-      const projectIds = snapshot.docs.map(d => d.id);
+      // Map of projectId -> role
+      const myRoles = new Map<string, string>();
+      snapshot.docs.forEach(d => {
+        myRoles.set(d.id, d.data().role);
+      });
+
+      const projectIds = Array.from(myRoles.keys());
       if (projectIds.length === 0) {
         setProjects([]);
         return;
@@ -153,7 +159,10 @@ export default function App() {
       const publicProjectsRef = collection(db, 'artifacts', appId, 'public', 'data', 'projects');
       const unsubPublic = onSnapshot(publicProjectsRef, (s) => {
         const allPublic = s.docs.map(d => ({ id: d.id, ...d.data() } as Project));
-        const myData = allPublic.filter(p => projectIds.includes(p.id));
+        const myData = allPublic
+          .filter(p => projectIds.includes(p.id))
+          .map(p => ({ ...p, role: myRoles.get(p.id) as any })); // Merge role
+
         setProjects(myData);
         if (myData.length > 0 && (!activeProjectId || !myData.find(p => p.id === activeProjectId))) {
           setActiveProjectId(myData[0].id);
@@ -375,7 +384,7 @@ export default function App() {
 
   const handleJoin = async (code: string) => {
     if (!code || !user) return;
-    await ProjectService.join(code, user.uid);
+    await ProjectService.join(code, user);
     setActiveProjectId(code);
     setProjectModalMode(null);
   };
@@ -494,7 +503,7 @@ export default function App() {
   };
 
   const handleBulkDelete = async () => {
-    if (selectedIds.size === 0) return;
+    if (selectedIds.size === 0 || activeProject?.role === 'viewer') return;
 
     setConfirmConfig({
       title: "Delete Selected Items",
@@ -577,6 +586,8 @@ export default function App() {
   };
 
   const handleQuickStatusUpdate = async (id: string, status: 'Passed' | 'Failed', type: 'functional' | 'api') => {
+    if (activeProject?.role === 'viewer') return; // Strict permission check
+
     if (user.uid === 'demo-user') {
       if (type === 'functional') {
         setTestCases(prev => prev.map(c => c.id === id ? { ...c, status, timestamp: Date.now(), lastUpdatedBy: 'demo-user', lastUpdatedByName: 'Guest User' } : c));
@@ -655,32 +666,33 @@ export default function App() {
                 title="Export to CSV"
               >
                 <Download size={14} /> <span className="hidden sm:inline">EXPORT</span>
+
+                {selectedIds.size > 0 && (
+                  <>
+                    <button onClick={handleBulkDelete} className="bg-red-500/10 text-red-500 border border-red-500/20 px-4 py-2 rounded-sm text-xs font-bold hover:bg-red-500/20 transition-all flex items-center gap-2 animate-in slide-in-from-right-4 shadow-lg shadow-red-900/10">
+                      <Trash2 size={14} /> DELETE ({selectedIds.size})
+                    </button>
+                    <button onClick={handleBulkRun} className="bg-emerald-600 text-white px-4 py-2 rounded-sm text-xs font-bold hover:bg-emerald-500 transition-all flex items-center gap-2 animate-in slide-in-from-right-2 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                      <Play size={14} fill="white" /> EXECUTE ({selectedIds.size})
+                    </button>
+                  </>
+                )}
+
               </button>
             )}
-            {selectedIds.size > 0 && (
-              <>
-                <button onClick={handleBulkDelete} className="bg-red-500/10 text-red-500 border border-red-500/20 px-4 py-2 rounded-sm text-xs font-bold hover:bg-red-500/20 transition-all flex items-center gap-2 animate-in slide-in-from-right-4 shadow-lg shadow-red-900/10">
-                  <Trash2 size={14} /> DELETE ({selectedIds.size})
-                </button>
-                <button onClick={handleBulkRun} className="bg-emerald-600 text-white px-4 py-2 rounded-sm text-xs font-bold hover:bg-emerald-500 transition-all flex items-center gap-2 animate-in slide-in-from-right-2 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-                  <Play size={14} fill="white" /> EXECUTE ({selectedIds.size})
-                </button>
-              </>
-            )}
 
-            {viewMode !== 'dashboard' && (
+            {/* Create New Button - Hidden for Viewers */}
+            {viewMode !== 'dashboard' && activeProject?.role !== 'viewer' && (
               <button
-                disabled={!activeProjectId || activeProject?.role === 'viewer'}
+                disabled={!activeProjectId}
                 onClick={() => {
-                  if (activeProject?.role === 'viewer') return;
                   if (viewMode === 'functional') {
                     setEditingCase(null); setIsCaseModalOpen(true);
                   } else {
                     setEditingAPICase(null); setIsAPIModalOpen(true);
                   }
                 }}
-                className="bg-white text-black px-4 py-2 rounded-sm text-xs font-bold hover:bg-white/90 transition-all active:scale-95 disabled:opacity-20 disabled:cursor-not-allowed shadow-lg"
-                title={activeProject?.role === 'viewer' ? "View Only Access" : "Create New"}
+                className="bg-white text-black px-4 py-2 rounded-sm text-xs font-bold hover:bg-white/90 transition-all active:scale-95 disabled:opacity-20 shadow-lg"
               >
                 + NEW {viewMode === 'functional' ? 'CASE' : 'API'}
               </button>
@@ -780,6 +792,7 @@ export default function App() {
               selectedIds={selectedIds}
               executingId={executingId}
               activeProjectId={activeProjectId}
+              readOnly={activeProject?.role === 'viewer'}
               onToggleSelect={(id) => {
                 const next = new Set(selectedIds);
                 if (next.has(id)) next.delete(id); else next.add(id);
@@ -789,8 +802,12 @@ export default function App() {
                 setSelectedIds(selectedIds.size === filteredCases.length ? new Set() : new Set(filteredCases.map(c => c.id)));
               }}
               onRun={handleRunAutomation}
-              onEdit={(tc) => { setEditingCase(tc); setIsCaseModalOpen(true); }}
+              onEdit={(tc) => {
+                if (activeProject?.role === 'viewer') return;
+                setEditingCase(tc); setIsCaseModalOpen(true);
+              }}
               onDelete={(id) => {
+                if (activeProject?.role === 'viewer') return;
                 setConfirmConfig({
                   title: "Delete Test Case",
                   message: "Are you sure you want to delete this test case permanently?",
@@ -810,6 +827,7 @@ export default function App() {
               selectedIds={selectedIds}
               executingId={executingId}
               activeProjectId={activeProjectId}
+              readOnly={activeProject?.role === 'viewer'}
               onToggleSelect={(id) => {
                 const next = new Set(selectedIds);
                 if (next.has(id)) next.delete(id); else next.add(id);
@@ -820,6 +838,7 @@ export default function App() {
                 setSelectedIds(selectedIds.size === filtered.length ? new Set() : new Set(filtered.map(c => c.id)));
               }}
               onRun={async (tc) => {
+                if (activeProject?.role === 'viewer') return;
                 setExecutingId(tc.id);
                 log(`Sending ${tc.method} request to ${tc.url}...`);
                 await new Promise(r => setTimeout(r, 1000)); // Simulate request
@@ -833,8 +852,12 @@ export default function App() {
                 }
                 setExecutingId(null);
               }}
-              onEdit={(tc) => { setEditingAPICase(tc); setIsAPIModalOpen(true); }}
+              onEdit={(tc) => {
+                if (activeProject?.role === 'viewer') return;
+                setEditingAPICase(tc); setIsAPIModalOpen(true);
+              }}
               onDelete={(id) => {
+                if (activeProject?.role === 'viewer') return;
                 setConfirmConfig({
                   title: "Delete API Request",
                   message: "Are you sure you want to delete this API request permanently?",

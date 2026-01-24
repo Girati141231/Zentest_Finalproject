@@ -17,6 +17,7 @@ interface APITableProps {
     onDelete: (id: string) => void;
     onStatusUpdate: (id: string, status: 'Passed' | 'Failed') => void;
     onMessage: (tc: APITestCase) => void;
+    readOnly?: boolean;
 }
 
 const METHOD_COLORS = {
@@ -38,7 +39,8 @@ const APITable: React.FC<APITableProps> = ({
     onEdit,
     onDelete,
     onStatusUpdate,
-    onMessage
+    onMessage,
+    readOnly = false
 }) => {
     return (
         <div className="border border-white/10 rounded-sm overflow-hidden bg-[#050505]">
@@ -127,22 +129,26 @@ const APITable: React.FC<APITableProps> = ({
                             </td>
                             <td className="px-4 py-4 text-right">
                                 <div className="flex items-center justify-center gap-2">
-                                    <button
-                                        onClick={() => onStatusUpdate(c.id, 'Passed')}
-                                        className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/50 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all"
-                                        title="Mark Passed"
-                                    >
-                                        <CheckCircle2 size={16} />
-                                    </button>
-                                    <button
-                                        onClick={() => onStatusUpdate(c.id, 'Failed')}
-                                        className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/50 hover:text-red-400 hover:bg-red-500/10 transition-all"
-                                        title="Mark Failed"
-                                    >
-                                        <XCircle size={16} />
-                                    </button>
+                                    {!readOnly && (
+                                        <>
+                                            <button
+                                                onClick={() => onStatusUpdate(c.id, 'Passed')}
+                                                className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/50 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all"
+                                                title="Mark Passed"
+                                            >
+                                                <CheckCircle2 size={16} />
+                                            </button>
+                                            <button
+                                                onClick={() => onStatusUpdate(c.id, 'Failed')}
+                                                className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/50 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                                                title="Mark Failed"
+                                            >
+                                                <XCircle size={16} />
+                                            </button>
 
-                                    <div className="w-px h-4 bg-white/5 mx-1"></div>
+                                            <div className="w-px h-4 bg-white/5 mx-1"></div>
+                                        </>
+                                    )}
 
                                     <button
                                         onClick={() => onMessage(c)}
@@ -152,18 +158,22 @@ const APITable: React.FC<APITableProps> = ({
                                         <MessageSquare size={14} />
                                     </button>
 
-                                    <button
-                                        onClick={() => onEdit(c)}
-                                        className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/60 hover:text-white transition-all"
-                                    >
-                                        <Edit3 size={14} />
-                                    </button>
-                                    <button
-                                        onClick={() => onDelete(c.id)}
-                                        className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/50 hover:text-red-500 hover:border-red-500/20 hover:bg-red-500/5 transition-all"
-                                    >
-                                        <Trash2 size={14} />
-                                    </button>
+                                    {!readOnly && (
+                                        <>
+                                            <button
+                                                onClick={() => onEdit(c)}
+                                                className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/60 hover:text-white transition-all"
+                                            >
+                                                <Edit3 size={14} />
+                                            </button>
+                                            <button
+                                                onClick={() => onDelete(c.id)}
+                                                className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/50 hover:text-red-500 hover:border-red-500/20 hover:bg-red-500/5 transition-all"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             </td>
                         </tr>
