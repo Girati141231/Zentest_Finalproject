@@ -8,6 +8,18 @@ export interface Project {
   initial: string;
   owner?: string;
   photoURL?: string;
+  role?: ProjectRole; // Role of the current user in this project
+}
+
+export type ProjectRole = 'owner' | 'editor' | 'viewer';
+
+export interface ProjectMember {
+  uid: string;
+  email: string;
+  displayName: string;
+  photoURL: string;
+  role: ProjectRole;
+  joinedAt: number;
 }
 
 export interface Module {

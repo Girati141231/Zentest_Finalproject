@@ -20,6 +20,12 @@ import { Project, TestCase, Module, APITestCase, Comment } from '../types';
 // Paths
 const PUBLIC_DATA_PATH = ['artifacts', appId, 'public', 'data'];
 const USER_DATA_PATH = (uid: string) => ['artifacts', appId, 'users', uid, 'myProjects'];
+// Helper to join path segments
+const getProjectMembersCollection = (projectId: string) =>
+  collection(db, ...['artifacts', appId, 'public', 'data', 'projects', projectId, 'members']);
+// Or just use join if spread is issue
+const getProjectMemberDoc = (projectId: string, uid: string) =>
+  doc(db, 'artifacts', appId, 'public', 'data', 'projects', projectId, 'members', uid);
 
 // Helper to simulate delay in Demo Mode
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -73,7 +79,7 @@ export const ProjectService = {
     // 1. Create in Public Data
     const projectRef = await addDoc(collection(db, PUBLIC_DATA_PATH[0], PUBLIC_DATA_PATH[1], PUBLIC_DATA_PATH[2], PUBLIC_DATA_PATH[3], 'projects'), {
       ...data,
-      owner: uid,
+      owner: uid, // Ensure owner is set
       createdAt: serverTimestamp()
     });
 
@@ -83,15 +89,72 @@ export const ProjectService = {
       role: 'owner'
     });
 
+    // 3. Add to Project Members Collection
+    // Use helper or manual path join
+    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projects', projectRef.id, 'members', uid), {
+      uid,
+      role: 'owner',
+      joinedAt: Date.now(),
+    });
+
     return projectRef.id;
   },
 
-  join: async (projectId: string, uid: string) => {
+  // User joining a project via code
+  join: async (projectId: string, user: any) => {
     if (!isConfigured) { await delay(500); return; }
-    await setDoc(doc(db, USER_DATA_PATH(uid)[0], USER_DATA_PATH(uid)[1], USER_DATA_PATH(uid)[2], USER_DATA_PATH(uid)[3], USER_DATA_PATH(uid)[4], projectId), {
+
+    // 1. Add to My Projects
+    await setDoc(doc(db, USER_DATA_PATH(user.uid)[0], USER_DATA_PATH(user.uid)[1], USER_DATA_PATH(user.uid)[2], USER_DATA_PATH(user.uid)[3], USER_DATA_PATH(user.uid)[4], projectId), {
       joinedAt: Date.now(),
-      role: 'member'
+      role: 'viewer' // Default to viewer
     });
+
+    // 2. Add to Project Members
+    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projects', projectId, 'members', user.uid), {
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName,
+      photoURL: user.photoURL,
+      role: 'viewer',
+      joinedAt: Date.now()
+    });
+  },
+
+  getMembers: (projectId: string, callback: (members: any[]) => void) => {
+    if (!isConfigured) { callback([]); return () => { }; }
+    const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'projects', projectId, 'members'));
+    return onSnapshot(q, (snapshot) => {
+      callback(snapshot.docs.map(d => d.data()));
+    });
+  },
+
+  updateMemberRole: async (projectId: string, memberId: string, newRole: string) => {
+    if (!isConfigured) { await delay(300); return; }
+
+    // 1. Update in Project Members
+    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projects', projectId, 'members', memberId), { role: newRole });
+
+    // 2. Update in User's My Projects
+    try {
+      await updateDoc(doc(db, 'artifacts', appId, 'users', memberId, 'myProjects', projectId), { role: newRole });
+    } catch (e) {
+      console.warn("Could not update user's private project role copy:", e);
+    }
+  },
+
+  kickMember: async (projectId: string, memberId: string) => {
+    if (!isConfigured) await delay(300);
+
+    // 1. Remove from Project Members
+    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projects', projectId, 'members', memberId));
+
+    // 2. Remove from User's My Projects
+    try {
+      await deleteDoc(doc(db, 'artifacts', appId, 'users', memberId, 'myProjects', projectId));
+    } catch (e) {
+      console.warn("Could not remove from user's private list:", e);
+    }
   },
 
   update: async (id: string, data: Partial<Project>) => {
@@ -102,18 +165,17 @@ export const ProjectService = {
 
   leave: async (id: string, uid: string) => {
     if (!isConfigured) { await delay(300); return; }
+    // 1. Remove from My Projects
     await deleteDoc(doc(db, USER_DATA_PATH(uid)[0], USER_DATA_PATH(uid)[1], USER_DATA_PATH(uid)[2], USER_DATA_PATH(uid)[3], USER_DATA_PATH(uid)[4], id));
+
+    // 2. Remove from Project Members
+    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projects', id, 'members', uid));
   },
 
   delete: async (id: string) => {
     if (!isConfigured) { await delay(300); return; }
     // Delete the project document
     await deleteDoc(doc(db, PUBLIC_DATA_PATH[0], PUBLIC_DATA_PATH[1], PUBLIC_DATA_PATH[2], PUBLIC_DATA_PATH[3], 'projects', id));
-
-    // Note: In a real production app, you would use a Cloud Function to handle cascading deletes 
-    // of modules and test cases to ensure data integrity and security.
-    // For this client-side implementation, we rely on the client to clean up or just leave orphaned data 
-    // which is acceptable for this scale.
   }
 };
 

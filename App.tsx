@@ -667,17 +667,20 @@ export default function App() {
                 </button>
               </>
             )}
+
             {viewMode !== 'dashboard' && (
               <button
-                disabled={!activeProjectId}
+                disabled={!activeProjectId || activeProject?.role === 'viewer'}
                 onClick={() => {
+                  if (activeProject?.role === 'viewer') return;
                   if (viewMode === 'functional') {
                     setEditingCase(null); setIsCaseModalOpen(true);
                   } else {
                     setEditingAPICase(null); setIsAPIModalOpen(true);
                   }
                 }}
-                className="bg-white text-black px-4 py-2 rounded-sm text-xs font-bold hover:bg-white/90 transition-all active:scale-95 disabled:opacity-20 shadow-lg"
+                className="bg-white text-black px-4 py-2 rounded-sm text-xs font-bold hover:bg-white/90 transition-all active:scale-95 disabled:opacity-20 disabled:cursor-not-allowed shadow-lg"
+                title={activeProject?.role === 'viewer' ? "View Only Access" : "Create New"}
               >
                 + NEW {viewMode === 'functional' ? 'CASE' : 'API'}
               </button>
@@ -909,15 +912,17 @@ export default function App() {
         logs={logs}
         executingId={executingId}
       />
-      {confirmConfig && (
-        <ConfirmModal
-          isOpen={true}
-          onClose={() => setConfirmConfig(null)}
-          onConfirm={confirmConfig.onConfirm}
-          title={confirmConfig.title}
-          message={confirmConfig.message}
-        />
-      )}
+      {
+        confirmConfig && (
+          <ConfirmModal
+            isOpen={true}
+            onClose={() => setConfirmConfig(null)}
+            onConfirm={confirmConfig.onConfirm}
+            title={confirmConfig.title}
+            message={confirmConfig.message}
+          />
+        )
+      }
 
       <CommentsDrawer
         isOpen={isCommentDrawerOpen}
@@ -929,6 +934,6 @@ export default function App() {
         onAddComment={handleAddComment}
         onDeleteComment={handleDeleteComment}
       />
-    </div>
+    </div >
   );
 }

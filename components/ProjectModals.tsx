@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Check, Copy, Trash2, LogOut, Upload } from 'lucide-react';
 import Modal from './ui/Modal';
 import ConfirmModal from './ui/ConfirmModal';
-import { Project, COLORS, Module, ModalMode } from '../types';
+import { Project, COLORS, Module, ModalMode, ProjectMember } from '../types';
+import { ProjectService } from '../services/db';
 
 interface ProjectModalsProps {
   mode: ModalMode;
@@ -28,6 +29,23 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
   const [editingModName, setEditingModName] = useState('');
   const [copied, setCopied] = useState(false);
   const [confirmConfig, setConfirmConfig] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
+  const [members, setMembers] = useState<ProjectMember[]>([]);
+
+  useEffect(() => {
+    if (mode === 'edit' && activeProject?.id) {
+      // Subscribe to Members
+      const unsub = ProjectService.getMembers(activeProject.id, (data) => {
+        // Sort: Owner first, then by Name
+        const sorted = data.sort((a, b) => {
+          if (a.role === 'owner') return -1;
+          if (b.role === 'owner') return 1;
+          return a.displayName.localeCompare(b.displayName);
+        });
+        setMembers(sorted);
+      });
+      return () => { if (unsub) unsub(); };
+    }
+  }, [mode, activeProject]);
 
   useEffect(() => {
     if (mode === 'edit' && activeProject) {
@@ -228,6 +246,73 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
                 </div>
               </div>
 
+
+              {/* MEMBERS MANAGEMENT */}
+              <div className="pt-6 border-t border-white/5">
+                <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest block mb-3">Team Members ({members.length})</label>
+
+                <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
+                  {members.map(member => {
+                    const isMe = member.uid === user.uid;
+                    const amIOwner = activeProject.owner === user.uid;
+                    const isMemberOwner = member.role === 'owner';
+
+                    return (
+                      <div key={member.uid} className="flex justify-between items-center p-2.5 bg-white/[0.02] border border-white/5 rounded-sm">
+                        <div className="flex items-center gap-3">
+                          {member.photoURL ? (
+                            <img src={member.photoURL} className="w-6 h-6 rounded-full" alt="avatar" />
+                          ) : (
+                            <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-[10px] font-bold text-blue-400">
+                              {member.displayName?.[0] || '?'}
+                            </div>
+                          )}
+                          <div className="flex flex-col">
+                            <span className="text-[11px] font-bold text-white/80">{member.displayName} {isMe && <span className="text-white/30 text-[9px]">(You)</span>}</span>
+                            <span className="text-[9px] text-white/40 font-mono">{member.email}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {isMemberOwner ? (
+                            <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 text-[9px] font-bold uppercase tracking-wider border border-amber-500/20">Owner</span>
+                          ) : (
+                            amIOwner ? (
+                              <select
+                                value={member.role}
+                                onChange={(e) => ProjectService.updateMemberRole(activeProject.id, member.uid, e.target.value)}
+                                className="bg-black border border-white/10 text-[9px] text-white/70 rounded px-1 py-0.5 outline-none focus:border-white/20 uppercase font-bold tracking-wider"
+                              >
+                                <option value="editor">Editor</option>
+                                <option value="viewer">Viewer</option>
+                              </select>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded bg-white/5 text-white/50 text-[9px] font-bold uppercase tracking-wider border border-white/10">{member.role}</span>
+                            )
+                          )}
+
+                          {amIOwner && !isMemberOwner && !isMe && (
+                            <button
+                              onClick={() => {
+                                setConfirmConfig({
+                                  title: "Remove Member",
+                                  message: `Are you sure you want to remove ${member.displayName} from the project?`,
+                                  onConfirm: () => ProjectService.kickMember(activeProject.id, member.uid)
+                                });
+                              }}
+                              className="w-6 h-6 flex items-center justify-center rounded text-white/20 hover:text-red-500 hover:bg-red-500/10 transition-all"
+                              title="Kick Member"
+                            >
+                              <LogOut size={12} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="pt-6 border-t border-red-500/10">
                 <label className="text-[10px] text-red-500/40 uppercase font-bold block mb-3 italic tracking-widest">Danger Zone</label>
                 {activeProject.owner === user.uid ? (
@@ -261,17 +346,20 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
             </>
           )}
         </div>
-      )}
-      {confirmConfig && (
-        <ConfirmModal
-          isOpen={true}
-          onClose={() => setConfirmConfig(null)}
-          onConfirm={confirmConfig.onConfirm}
-          title={confirmConfig.title}
-          message={confirmConfig.message}
-        />
-      )}
-    </Modal>
+      )
+      }
+      {
+        confirmConfig && (
+          <ConfirmModal
+            isOpen={true}
+            onClose={() => setConfirmConfig(null)}
+            onConfirm={confirmConfig.onConfirm}
+            title={confirmConfig.title}
+            message={confirmConfig.message}
+          />
+        )
+      }
+    </Modal >
   );
 };
 
