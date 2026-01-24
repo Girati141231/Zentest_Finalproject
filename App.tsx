@@ -350,34 +350,75 @@ export default function App() {
     setLogs([]);
     setIsTerminalOpen(true);
 
-    log(`Initializing environment for ${testCase.id}...`);
-    await new Promise(r => setTimeout(r, 600));
+    log(`Initializing Compass Automation Engine...`);
+    log(`Connecting to local automation server at http://localhost:3002...`);
 
-    // Simulate steps
-    for (const step of (testCase.steps || [])) {
-      if (step.trim()) {
-        log(`Executing: ${step}...`);
-        await new Promise(r => setTimeout(r, 400));
+    try {
+      const steps = testCase.automationSteps || [];
+      if (steps.length === 0) {
+        log(`Error: No automation steps found. Please import JSON in Automation Hub.`, 'error');
+        setExecutingId(null);
+        return;
       }
-    }
 
-    const isSuccess = Math.random() > 0.15;
-    if (isSuccess) {
-      log(`ASSERTION PASSED`, 'success');
-      if (user.uid === 'demo-user') {
-        setTestCases(prev => prev.map(c => c.id === testCase.id ? { ...c, status: 'Passed' } : c));
-      } else {
-        await TestCaseService.updateStatus(testCase.id, 'Passed', user);
+      log(`Transmitting ${steps.length} execution nodes to headed browser context...`);
+
+      const response = await fetch('http://localhost:3002/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ steps })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || `Server returned ${response.status}`);
       }
-    } else {
-      log(`ASSERTION FAILED: Element mismatch`, 'error');
-      if (user.uid === 'demo-user') {
-        setTestCases(prev => prev.map(c => c.id === testCase.id ? { ...c, status: 'Failed' } : c));
-      } else {
-        await TestCaseService.updateStatus(testCase.id, 'Failed', user);
+
+      if (result.logs) {
+        result.logs.forEach((l: string) => {
+          if (l.includes('Success')) log(l, 'success');
+          else if (l.includes('Failed')) log(l, 'error');
+          else log(l);
+        });
       }
+
+      if (result.status === 'success') {
+        log(`>>> AUTOMATION FLOW COMPLETED SUCCESSFULLY`, 'success');
+        const isTemp = testCase.id.startsWith('TEMP-');
+
+        if (user.uid === 'demo-user' || isTemp) {
+          setTestCases(prev => prev.map(c => c.id === testCase.id ? { ...c, status: 'Passed' } : c));
+        } else {
+          await TestCaseService.updateStatus(testCase.id, 'Passed', user);
+        }
+        setExecutingId(null);
+        return true;
+      } else {
+        log(`>>> AUTOMATION FLOW FAILED: ${result.message}`, 'error');
+        const isTemp = testCase.id.startsWith('TEMP-');
+
+        if (user.uid === 'demo-user' || isTemp) {
+          setTestCases(prev => prev.map(c => c.id === testCase.id ? { ...c, status: 'Failed' } : c));
+        } else {
+          await TestCaseService.updateStatus(testCase.id, 'Failed', user);
+        }
+        setExecutingId(null);
+        return false;
+      }
+    } catch (error: any) {
+      log(`CRITICAL ERROR: ${error.message}`, 'error');
+
+      const isNetworkError = error.message.toLowerCase().includes('fetch') ||
+        error.message.toLowerCase().includes('network') ||
+        error.message.toLowerCase().includes('failed');
+
+      if (isNetworkError) {
+        log(`Suggestion: Please check if the automation server is running on port 3002 (npm start in /automation-server)`, 'error');
+      }
+      setExecutingId(null);
+      return false;
     }
-    setExecutingId(null);
   };
 
   const handleBulkRun = async () => {
@@ -762,6 +803,7 @@ export default function App() {
         modules={projectModules}
         editingCase={editingCase}
         onSave={handleTestCaseSave}
+        onRun={handleRunAutomation}
       />
 
       <APIForm
