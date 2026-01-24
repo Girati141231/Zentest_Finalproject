@@ -585,20 +585,14 @@ export default function App() {
 
     await CommentService.add(newComment);
 
-    // Mark as read immediately for the sender so they don't see unread badge
-    const currentCount = activeCommentCase.commentCount || 0; // This might be stale if we don't have live count here, 
-    // but better: increment logic
-    // Actually simpler: we just sent one, so we should read up to 'current known + 1' or just let the subscription update it later?
-    // If we mark read now, we might be ahead or behind.
-    // The safest is: The sender knows they sent it.
-    // The subscription will eventually update the total count.
+    // Mark as read immediately for the sender so they don't see unread badge (Assume +1 count)
+    const liveTC = testCases.find(c => c.id === activeCommentCase.id) || apiTestCases.find(c => c.id === activeCommentCase.id);
+    const currentCount = liveTC?.commentCount || 0;
 
-    // Actually we can just mark read to a very high number? No.
-    // We should rely on the component list to update.
-    // But better: In handleAddComment, we don't know the exact new total unless we listen to it.
-    // However, we can simply say: we are viewing the thread, so we are "reading" it.
-    // The drawer is open.
-    // Maybe we should update "Last Read" periodically or when comments change while drawer is open?
+    if (activeProjectId) {
+      // We predict the new count will be current + 1
+      UserReadStatusService.markRead(activeProjectId, activeCommentCase.id, currentCount + 1, user.uid);
+    }
   };
 
   const handleDeleteComment = async (id: string) => {
