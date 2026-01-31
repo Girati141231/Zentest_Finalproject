@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { XCircle, Code2, Play, FileJson, Sparkles } from 'lucide-react';
 import Modal from './ui/Modal';
+import AlertModal from './ui/AlertModal';
 import { TestCase, Module, Priority, Status, PRIORITIES, STATUSES } from '../types';
 import { generatePlaywrightScript } from '../utils/automationGenerator';
 
@@ -33,6 +34,7 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
   const [form, setForm] = useState<Partial<TestCase>>(DEFAULT_FORM);
   const [jsonInput, setJsonInput] = useState('');
   const [showJsonInput, setShowJsonInput] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<{ message: string; type: 'info' | 'success' | 'error' } | null>(null);
 
   useEffect(() => {
     if (editingCase) {
@@ -47,12 +49,12 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
 
   const handleSave = async (silent = false, statusOverride?: Status) => {
     if (!form.title) {
-      if (!silent) alert("Verification Required: Please enter a 'Scenario Title' in the General Info tab before committing.");
+      if (!silent) setAlertConfig({ message: "Verification Required: Please enter a 'Scenario Title' in the General Info tab before committing.", type: 'error' });
       setActiveTab('doc');
       return false;
     }
     if (!activeProjectId) {
-      if (!silent) alert("Error: No active project context found.");
+      if (!silent) setAlertConfig({ message: "Error: No active project context found.", type: 'error' });
       return false;
     }
 
@@ -173,7 +175,7 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
       setShowJsonInput(false);
       setJsonInput('');
     } catch (e: any) {
-      alert("Invalid JSON: " + e.message);
+      setAlertConfig({ message: "Invalid JSON: " + e.message, type: 'error' });
     }
   };
 
@@ -317,6 +319,12 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
           </div >
         )}
       </div >
+      <AlertModal
+        isOpen={!!alertConfig}
+        onClose={() => setAlertConfig(null)}
+        message={alertConfig?.message || ''}
+        type={alertConfig?.type}
+      />
     </Modal >
   );
 };

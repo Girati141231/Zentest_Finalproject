@@ -33,197 +33,81 @@ import Dashboard from './components/Dashboard';
 import LandingPage from './components/LandingPage';
 import ConfirmModal from './components/ui/ConfirmModal';
 import CommentsDrawer from './components/CommentsDrawer';
+import LicenseRedemption from './components/LicenseRedemption';
 
-// Mock Data for Demo Mode
-const MOCK_PROJECTS: Project[] = [
-  { id: 'demo-1', name: 'ZenTest Demo', color: '#3b82f6', initial: 'ZD', owner: 'demo-user' },
-  { id: 'demo-2', name: 'Mobile App', color: '#10b981', initial: 'MA', owner: 'demo-user' }
-];
-
-const MOCK_MODULES: Module[] = [
-  { id: 'mod-1', projectId: 'demo-1', name: 'Authentication' },
-  { id: 'mod-2', projectId: 'demo-1', name: 'Checkout' },
-  { id: 'mod-3', projectId: 'demo-2', name: 'Onboarding' }
-];
-
-const MOCK_CASES: TestCase[] = [
-  { id: 'TC-1001', projectId: 'demo-1', title: 'Verify user login with valid credentials', module: 'Authentication', priority: 'Critical', status: 'Passed', steps: ['Navigate to /login', 'Enter valid email', 'Enter valid password', 'Click Submit'], expected: 'Dashboard loads', script: '// Mock automation\nawait login("user", "pass");', hasAutomation: true, timestamp: Date.now() },
-  { id: 'TC-1002', projectId: 'demo-1', title: 'Forgot password flow', module: 'Authentication', priority: 'High', status: 'Pending', steps: ['Click Forgot Password', 'Enter email'], expected: 'Reset link sent', script: '', hasAutomation: false, timestamp: Date.now() },
-  { id: 'TC-1003', projectId: 'demo-1', title: 'Cart calculation verification', module: 'Checkout', priority: 'Medium', status: 'Failed', steps: ['Add Item A', 'Add Item B', 'Check Total'], expected: 'Total = A + B', script: 'const total = cart.total();\nexpect(total).toBe(50.00);', hasAutomation: true, timestamp: Date.now() }
-];
-
-const MOCK_API_CASES: APITestCase[] = [
-  { id: 'API-5001', projectId: 'demo-1', title: 'Get User Profile', module: 'Authentication', priority: 'High', status: 'Passed', method: 'GET', url: 'https://api.zentest.dev/v1/me', headers: [{ key: 'Authorization', value: 'Bearer token' }], expectedStatus: 200, expectedBody: '{ "id": "123", "name": "John" }', timestamp: Date.now() },
-  { id: 'API-5002', projectId: 'demo-1', title: 'Create New Order', module: 'Checkout', priority: 'Critical', status: 'Pending', method: 'POST', url: 'https://api.zentest.dev/v1/orders', headers: [{ key: 'Content-Type', value: 'application/json' }], body: '{ "items": ["A", "B"] }', expectedStatus: 201, timestamp: Date.now() }
-];
+// Hooks
+import { useAuth } from './hooks/useAuth';
+import { useProjects } from './hooks/useProjects';
+import { useProjectData } from './hooks/useProjectData';
+import { useTestFilters } from './hooks/useTestFilters';
+import { LicenseService } from './services/license';
+import { AdminPortal } from './components/admin/AdminPortal';
+import { AdminDashboard } from './components/admin/AdminDashboard';
+import { ADMIN_EMAIL } from './services/admin';
+import QuotaModal from './components/ui/QuotaModal';
 
 export default function App() {
-  // --- State ---
-  const [user, setUser] = useState<any>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [loginError, setLoginError] = useState<string | null>(null);
+  // --- Hooks ---
+  const { user, userDoc, authLoading, loginError, handleLogin, handleLogout, handleDemoLogin } = useAuth();
+  const { projects, activeProjectId, setActiveProjectId, handleProjectSave, handleJoin, handleDeleteProject } = useProjects(user);
+  const {
+    modules,
+    testCases,
+    setTestCases,
+    apiTestCases,
+    setApiTestCases,
+    readStatus,
+    handleTestCaseSave,
+    handleAPICaseSave,
+    deleteItems,
+    updateStatus,
+    handleAddModule,
+    handleUpdateModule,
+    handleDeleteModule
+  } = useProjectData(user, activeProjectId);
 
-  // Data
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
-  const [modules, setModules] = useState<Module[]>([]);
-  const [testCases, setTestCases] = useState<TestCase[]>([]);
-  const [apiTestCases, setApiTestCases] = useState<APITestCase[]>([]);
+  const {
+    search, setSearch,
+    filterStatus, setFilterStatus,
+    filterModule, setFilterModule,
+    filterPriority, setFilterPriority,
+    filterAutomation, setFilterAutomation,
+    filterUser, setFilterUser,
+    filteredCases,
+    filteredApiCases,
+    clearFilters,
+    uniqueUsers
+  } = useTestFilters(testCases, apiTestCases);
 
-  // UI
+  // --- UI State ---
+  const [isInStudio, setIsInStudio] = useState(false);
+  const [isAdminPortal, setIsAdminPortal] = useState(false); // Admin Landing Choice
+  const [isAdminDashboard, setIsAdminDashboard] = useState(false); // Admin Panel
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<'functional' | 'api' | 'dashboard'>('dashboard');
-  const [search, setSearch] = useState('');
-  const [filterStatus, setFilterStatus] = useState<string>('All');
-  const [filterModule, setFilterModule] = useState<string>('All');
-  const [filterPriority, setFilterPriority] = useState<string>('All');
-  const [filterAutomation, setFilterAutomation] = useState<boolean>(false);
-  const [filterUser, setFilterUser] = useState<string>('All');
 
   // Modals
   const [isCaseModalOpen, setIsCaseModalOpen] = useState(false);
   const [isAPIModalOpen, setIsAPIModalOpen] = useState(false);
+  const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false);
   const [projectModalMode, setProjectModalMode] = useState<ModalMode>(null);
   const [editingCase, setEditingCase] = useState<TestCase | null>(null);
   const [editingAPICase, setEditingAPICase] = useState<APITestCase | null>(null);
   const [confirmConfig, setConfirmConfig] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
+  const [quotaMessage, setQuotaMessage] = useState<string | null>(null); // For QuotaModal
 
   // Comments
   const [isCommentDrawerOpen, setIsCommentDrawerOpen] = useState(false);
   const [activeCommentCase, setActiveCommentCase] = useState<{ id: string; title: string; commentCount?: number } | null>(null); // Added commentCount
   const [comments, setComments] = useState<Comment[]>([]);
-  const [readStatus, setReadStatus] = useState<Record<string, number>>({});
 
   // Execution
   const [executingId, setExecutingId] = useState<string | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
 
-  // --- Auth & Data Sync ---
-
-  useEffect(() => {
-    // 1. Auth Init
-    const initAuth = async () => {
-      // If not configured, we don't try to auth automatically.
-      // We wait for user to choose Demo Mode or Config.
-      if (!isConfigured) {
-        setAuthLoading(false);
-        return;
-      }
-      try {
-        // We do not force anon auth here if a real config is present to avoid conflicts with Google Auth
-        // But we wait for the auth state listener to trigger
-      } catch (e) { console.warn("Auth Init Warning", e); }
-    };
-    initAuth();
-
-    if (isConfigured) {
-      return onAuthStateChanged(auth, (u) => {
-        setUser(u);
-        setAuthLoading(false);
-      });
-    } else {
-      setAuthLoading(false);
-    }
-  }, []);
-
-  const handleDemoLogin = () => {
-    setUser({ uid: 'demo-user', displayName: 'Guest User', photoURL: null, email: 'guest@zentest.local' });
-    setAuthLoading(false);
-  };
-
-  useEffect(() => {
-    // 2. Fetch Projects
-    if (!user) return;
-
-    if (!isConfigured || user.uid === 'demo-user') {
-      // Load Mock Data
-      setProjects(MOCK_PROJECTS);
-      setActiveProjectId(MOCK_PROJECTS[0].id);
-      return;
-    }
-
-    const myProjectsRef = collection(db, 'artifacts', appId, 'users', user.uid, 'myProjects');
-    const unsubMyProjects = onSnapshot(myProjectsRef, (snapshot) => {
-      // Map of projectId -> role
-      const myRoles = new Map<string, string>();
-      snapshot.docs.forEach(d => {
-        myRoles.set(d.id, d.data().role);
-      });
-
-      const projectIds = Array.from(myRoles.keys());
-      if (projectIds.length === 0) {
-        setProjects([]);
-        return;
-      }
-      const publicProjectsRef = collection(db, 'artifacts', appId, 'public', 'data', 'projects');
-      const unsubPublic = onSnapshot(publicProjectsRef, (s) => {
-        const allPublic = s.docs.map(d => ({ id: d.id, ...d.data() } as Project));
-        const myData = allPublic
-          .filter(p => projectIds.includes(p.id))
-          .map(p => ({ ...p, role: myRoles.get(p.id) as any })); // Merge role
-
-        setProjects(myData);
-        if (myData.length > 0 && (!activeProjectId || !myData.find(p => p.id === activeProjectId))) {
-          setActiveProjectId(myData[0].id);
-        }
-      });
-      return () => unsubPublic();
-    });
-    return () => unsubMyProjects();
-  }, [user]);
-
-  useEffect(() => {
-    // 3. Fetch Data for Active Project
-    if (!user || !activeProjectId) {
-      setTestCases([]);
-      setModules([]);
-      setApiTestCases([]);
-      return;
-    }
-
-    if (!isConfigured || user.uid === 'demo-user') {
-      setModules(MOCK_MODULES.filter(m => m.projectId === activeProjectId));
-      setTestCases(MOCK_CASES.filter(c => c.projectId === activeProjectId));
-      setApiTestCases(MOCK_API_CASES.filter(c => c.projectId === activeProjectId));
-      return;
-    }
-
-    // Optimized: Server-side filtering using 'where'
-    const modulesRef = collection(db, 'artifacts', appId, 'public', 'data', 'modules');
-    const modulesQuery = query(modulesRef, where('projectId', '==', activeProjectId));
-
-    const casesRef = collection(db, 'artifacts', appId, 'public', 'data', 'testCases');
-    const casesQuery = query(casesRef, where('projectId', '==', activeProjectId));
-
-    const apiRef = collection(db, 'artifacts', appId, 'public', 'data', 'apiTestCases');
-    const apiQuery = query(apiRef, where('projectId', '==', activeProjectId));
-
-    const unsubModules = onSnapshot(modulesQuery, (s) => {
-      setModules(s.docs.map(d => ({ id: d.id, ...d.data() } as Module)));
-    });
-
-    const unsubCases = onSnapshot(casesQuery, (s) => {
-      setTestCases(s.docs.map(d => ({ id: d.id, ...d.data() } as TestCase)));
-    });
-
-    const unsubAPI = onSnapshot(apiQuery, (s) => {
-      setApiTestCases(s.docs.map(d => ({ id: d.id, ...d.data() } as APITestCase)));
-    });
-
-    return () => { unsubModules(); unsubCases(); unsubAPI(); };
-  }, [user, activeProjectId]);
-
-  useEffect(() => {
-    if (!activeProjectId || !user || user.uid === 'demo-user') return;
-    const unsub = UserReadStatusService.subscribe(activeProjectId, user.uid, (data) => {
-      setReadStatus(data);
-    });
-    return () => unsub();
-  }, [activeProjectId, user]);
-
-  // Subscribe to comments when drawer is open
+  // UseEffects for Comments (Specific to UI Drawer)
   useEffect(() => {
     if (!activeCommentCase) return;
 
@@ -239,50 +123,36 @@ export default function App() {
   }, [activeCommentCase, user]);
 
   // --- Helpers ---
-
   const activeProject = useMemo(() => projects.find(p => p.id === activeProjectId), [projects, activeProjectId]);
-  const projectModules = useMemo(() => modules, [modules]);
-
-  // Filters
-  const filterLogic = (c: TestCase | APITestCase) => {
-    const matchesSearch = c.title.toLowerCase().includes(search.toLowerCase()) ||
-      (c as any).url?.toLowerCase().includes(search.toLowerCase()) ||
-      c.id.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = filterStatus === 'All' || c.status === filterStatus;
-    const matchesModule = filterModule === 'All' || c.module === filterModule;
-    const matchesPriority = filterPriority === 'All' || c.priority === filterPriority;
-    const matchesAutomation = !filterAutomation || (c as any).hasAutomation; // Only applies to functional really, or custom logic
-    const matchesUser = filterUser === 'All' || c.lastUpdatedByName === filterUser;
-
-    return matchesSearch && matchesStatus && matchesModule && matchesPriority && matchesAutomation && matchesUser;
-  };
-
-  const filteredCases = useMemo(() => {
-    return testCases.filter(filterLogic);
-  }, [testCases, search, filterStatus, filterModule, filterPriority, filterAutomation, filterUser]);
-
-  const filteredApiCases = useMemo(() => {
-    return apiTestCases.filter(filterLogic);
-  }, [apiTestCases, search, filterStatus, filterModule, filterPriority, filterAutomation, filterUser]);
-
-  const clearFilters = () => {
-    setFilterModule('All');
-    setFilterPriority('All');
-    setFilterStatus('All');
-    setFilterUser('All');
-    setFilterAutomation(false);
-    setSearch('');
-  };
-
-  // Unique Users for Dropdown
-  const uniqueUsers = useMemo(() => {
-    const all = [...testCases, ...apiTestCases];
-    const users = new Set(all.map(c => c.lastUpdatedByName).filter(Boolean));
-    return Array.from(users);
-  }, [testCases, apiTestCases]);
 
   const log = (msg: string, type: 'info' | 'success' | 'error' = 'info') => {
     setLogs(prev => [...prev, { msg: `[${new Date().toLocaleTimeString()}] ${msg}`, type }]);
+  };
+
+  const handleLoginWrapper = async () => {
+    await handleLogin();
+  };
+
+  const handleDemoLoginWrapper = () => {
+    handleDemoLogin();
+    setIsInStudio(true);
+  };
+
+  // Effect to handle Admin redirection upon login
+  useEffect(() => {
+    if (user && user.email === ADMIN_EMAIL && !isInStudio) {
+      // If admin logs in, show portal first (unless already in studio/dashboard from session?)
+      // Actually, let's force portal on fresh login if not in specific mode
+      if (!isAdminDashboard) setIsAdminPortal(true);
+    }
+  }, [user, isInStudio, isAdminDashboard]);
+
+  const handleAppLogout = async () => {
+    await handleLogout();
+    setIsInStudio(false);
+    setIsAdminPortal(false);
+    setIsAdminDashboard(false);
+    setActiveProjectId(null);
   };
 
   // --- Actions ---
@@ -340,64 +210,6 @@ export default function App() {
     document.body.removeChild(link);
   };
 
-  const handleLogin = async () => {
-    if (!isConfigured) return;
-    setLoginError(null);
-    try {
-      await signInWithPopup(auth, new GoogleAuthProvider());
-    } catch (e: any) {
-      console.error(e);
-      if (e.code === 'auth/unauthorized-domain') {
-        setLoginError(`The current domain (${window.location.hostname}) is not authorized in your Firebase Console. Please add it to Authentication > Settings > Authorized Domains.`);
-      } else if (e.code === 'auth/popup-closed-by-user') {
-        setLoginError(null);
-      } else {
-        setLoginError(e.message || "Authentication failed.");
-      }
-    }
-  };
-
-  const handleLogout = () => {
-    if (isConfigured && user?.uid !== 'demo-user') {
-      signOut(auth);
-    } else {
-      setUser(null);
-    }
-  };
-
-  const handleProjectSave = async (data: any) => {
-    if (!user) return;
-    const initial = data.name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2);
-    const payload = { ...data, initial };
-
-    if (user.uid === 'demo-user') {
-      // Update local state for demo
-      if (projectModalMode === 'edit' && activeProjectId) {
-        setProjects(prev => prev.map(p => p.id === activeProjectId ? { ...p, ...payload } : p));
-      } else {
-        const newId = `demo-new-${Date.now()}`;
-        setProjects(prev => [...prev, { ...payload, id: newId, owner: 'demo-user', color: payload.color || '#fff' }]);
-        setActiveProjectId(newId);
-      }
-      setProjectModalMode(null);
-      return;
-    }
-
-    if (projectModalMode === 'edit' && activeProjectId) {
-      await ProjectService.update(activeProjectId, payload);
-    } else {
-      const newId = await ProjectService.create(payload, user.uid);
-      setActiveProjectId(newId);
-    }
-  };
-
-  const handleJoin = async (code: string) => {
-    if (!code || !user) return;
-    await ProjectService.join(code, user);
-    setActiveProjectId(code);
-    setProjectModalMode(null);
-  };
-
   const handleRunAutomation = async (testCase: TestCase) => {
     setExecutingId(testCase.id);
     setLogs([]);
@@ -411,7 +223,7 @@ export default function App() {
       if (steps.length === 0) {
         log(`Error: No automation steps found. Please import JSON in Automation Hub.`, 'error');
         setExecutingId(null);
-        return;
+        return false;
       }
 
       log(`Transmitting ${steps.length} execution nodes to headed browser context...`);
@@ -440,8 +252,9 @@ export default function App() {
         log(`>>> AUTOMATION FLOW COMPLETED SUCCESSFULLY`, 'success');
         const isTemp = testCase.id.startsWith('TEMP-');
 
+        // Use hook function or manual update if temp
         if (user.uid === 'demo-user' || isTemp) {
-          setTestCases(prev => prev.map(c => c.id === testCase.id ? { ...c, status: 'Passed' } : c));
+          updateStatus(testCase.id, 'Passed', 'functional');
         } else {
           await TestCaseService.updateStatus(testCase.id, 'Passed', user);
         }
@@ -449,10 +262,8 @@ export default function App() {
         return true;
       } else {
         log(`>>> AUTOMATION FLOW FAILED: ${result.message}`, 'error');
-        const isTemp = testCase.id.startsWith('TEMP-');
-
-        if (user.uid === 'demo-user' || isTemp) {
-          setTestCases(prev => prev.map(c => c.id === testCase.id ? { ...c, status: 'Failed' } : c));
+        if (user.uid === 'demo-user') {
+          updateStatus(testCase.id, 'Failed', 'functional');
         } else {
           await TestCaseService.updateStatus(testCase.id, 'Failed', user);
         }
@@ -491,19 +302,11 @@ export default function App() {
       const success = Math.random() > 0.15;
       if (success) {
         log(`PASSED: ${tc.title}`, 'success');
-        if (user.uid === 'demo-user') {
-          setTestCases(prev => prev.map(c => c.id === tc.id ? { ...c, status: 'Passed' } : c));
-        } else {
-          await TestCaseService.updateStatus(tc.id, 'Passed', user);
-        }
+        updateStatus(tc.id, 'Passed', 'functional');
         passed++;
       } else {
         log(`FAILED: ${tc.title}`, 'error');
-        if (user.uid === 'demo-user') {
-          setTestCases(prev => prev.map(c => c.id === tc.id ? { ...c, status: 'Failed' } : c));
-        } else {
-          await TestCaseService.updateStatus(tc.id, 'Failed', user);
-        }
+        updateStatus(tc.id, 'Failed', 'functional');
       }
     }
 
@@ -518,51 +321,10 @@ export default function App() {
       title: "Delete Selected Items",
       message: `Are you sure you want to delete ${selectedIds.size} selected item(s)?`,
       onConfirm: async () => {
-        if (user.uid === 'demo-user') {
-          if (viewMode === 'functional') {
-            setTestCases(prev => prev.filter(c => !selectedIds.has(c.id)));
-          } else {
-            setApiTestCases(prev => prev.filter(c => !selectedIds.has(c.id)));
-          }
-          setSelectedIds(new Set());
-          return;
-        }
-
-        const idsToDelete = Array.from(selectedIds) as string[];
-        if (viewMode === 'functional') {
-          await Promise.all(idsToDelete.map(id => TestCaseService.delete(id)));
-        } else {
-          await Promise.all(idsToDelete.map(id => APITestCaseService.delete(id)));
-        }
+        await deleteItems(selectedIds, viewMode === 'functional' ? 'functional' : 'api');
         setSelectedIds(new Set());
       }
     });
-  };
-
-  const handleTestCaseSave = async (data: Partial<TestCase>, isNew: boolean) => {
-    if (user.uid === 'demo-user') {
-      if (isNew) {
-        const newTC = { ...data, id: `TC-${Math.floor(Math.random() * 10000)}`, timestamp: Date.now() } as TestCase;
-        setTestCases(prev => [...prev, newTC]);
-      } else {
-        setTestCases(prev => prev.map(c => c.id === data.id ? { ...c, ...data } : c));
-      }
-      return;
-    }
-    await TestCaseService.save(data, isNew, user);
-  };
-
-  const handleAPICaseSave = async (data: Partial<APITestCase>, isNew: boolean) => {
-    if (user.uid === 'demo-user') {
-      if (isNew) {
-        const newTC = { ...data, id: `API-${Math.floor(Math.random() * 10000)}`, timestamp: Date.now() } as APITestCase;
-        setApiTestCases(prev => [...prev, newTC]);
-      } else {
-        setApiTestCases(prev => prev.map(c => c.id === data.id ? { ...c, ...data } : c));
-      }
-      return;
-    }
-    await APITestCaseService.save(data, isNew, user);
   };
 
   const handleAddComment = async (content: string) => {
@@ -585,12 +347,10 @@ export default function App() {
 
     await CommentService.add(newComment);
 
-    // Mark as read immediately for the sender so they don't see unread badge (Assume +1 count)
     const liveTC = testCases.find(c => c.id === activeCommentCase.id) || apiTestCases.find(c => c.id === activeCommentCase.id);
     const currentCount = liveTC?.commentCount || 0;
 
     if (activeProjectId) {
-      // We predict the new count will be current + 1
       UserReadStatusService.markRead(activeProjectId, activeCommentCase.id, currentCount + 1, user.uid);
     }
   };
@@ -607,30 +367,45 @@ export default function App() {
   };
 
   const handleQuickStatusUpdate = async (id: string, status: 'Passed' | 'Failed', type: 'functional' | 'api') => {
-    if (activeProject?.role === 'viewer') return; // Strict permission check
-
-    if (user.uid === 'demo-user') {
-      if (type === 'functional') {
-        setTestCases(prev => prev.map(c => c.id === id ? { ...c, status, timestamp: Date.now(), lastUpdatedBy: 'demo-user', lastUpdatedByName: 'Guest User' } : c));
-      } else {
-        setApiTestCases(prev => prev.map(c => c.id === id ? { ...c, status, timestamp: Date.now(), lastUpdatedBy: 'demo-user', lastUpdatedByName: 'Guest User' } : c));
-      }
-      return;
-    }
-
-    if (type === 'functional') {
-      await TestCaseService.updateStatus(id, status, user);
-    } else {
-      await APITestCaseService.updateStatus(id, status, user);
-    }
+    if (activeProject?.role === 'viewer') return;
+    await updateStatus(id, status, type);
   };
 
   // --- Render ---
 
   if (authLoading) return <div className="h-screen bg-black flex items-center justify-center text-white font-mono text-xs animate-pulse">BOOTING KERNEL...</div>;
 
-  if (!user) {
-    return <LandingPage onLogin={handleLogin} onDemo={handleDemoLogin} />;
+  if (isAdminDashboard) {
+    return <AdminDashboard onLogout={handleAppLogout} onBackToPortal={() => { setIsAdminDashboard(false); setIsAdminPortal(true); }} />;
+  }
+
+  if (isAdminPortal) {
+    return (
+      <AdminPortal
+        user={user}
+        onLogout={handleAppLogout}
+        onSelectStudio={() => { setIsAdminPortal(false); setIsInStudio(true); }}
+        onSelectAdmin={() => { setIsAdminPortal(false); setIsAdminDashboard(true); }}
+      />
+    );
+  }
+
+  if (!user || !isInStudio) {
+    return (
+      <LandingPage
+        user={user}
+        onLogin={handleLogin}
+        onDemo={handleDemoLogin}
+        // If user is admin, "Enter Studio" from Landing Page should probably go to Portal too?
+        // Or just let them choose. Let's keep specific logic in handleLogin/Effect.
+        // But for manual click:
+        onEnterStudio={() => {
+          if (user?.email === ADMIN_EMAIL) setIsAdminPortal(true);
+          else setIsInStudio(true);
+        }}
+        onLogout={handleAppLogout}
+      />
+    );
   }
 
   return (
@@ -638,15 +413,25 @@ export default function App() {
 
       <Sidebar
         user={user}
+        isPro={userDoc?.tier === 'pro' && userDoc?.validUntil?.toMillis() > Date.now()}
         activeProjectId={activeProjectId}
         projects={projects}
         isExpanded={isSidebarExpanded}
         onToggleExpand={() => setIsSidebarExpanded(!isSidebarExpanded)}
         onProjectSelect={setActiveProjectId}
-        onLogout={handleLogout}
-        onCreateProject={() => setProjectModalMode('create')}
+        onLogout={handleAppLogout}
+        onBackToHome={() => setIsInStudio(false)}
+        onCreateProject={() => {
+          const isPro = userDoc?.tier === 'pro' && userDoc?.validUntil?.toMillis() > Date.now();
+          if (!isPro && projects.length >= 2) {
+            setQuotaMessage("You have reached the free limit of 2 Projects.");
+            return;
+          }
+          setProjectModalMode('create');
+        }}
         onJoinProject={() => setProjectModalMode('join')}
         onSettings={() => setProjectModalMode('edit')}
+        onLicense={() => setIsLicenseModalOpen(true)}
       />
 
       <main className="flex-1 flex flex-col transition-all duration-300">
@@ -707,9 +492,19 @@ export default function App() {
               <button
                 disabled={!activeProjectId}
                 onClick={() => {
+                  const isPro = userDoc?.tier === 'pro' && userDoc?.validUntil?.toMillis() > Date.now();
+
                   if (viewMode === 'functional') {
+                    if (!isPro && testCases.length >= 2) {
+                      setQuotaMessage("You have reached the free limit of 2 Test Cases.");
+                      return;
+                    }
                     setEditingCase(null); setIsCaseModalOpen(true);
                   } else {
+                    if (!isPro && apiTestCases.length >= 2) {
+                      setQuotaMessage("You have reached the free limit of 2 API Cases.");
+                      return;
+                    }
                     setEditingAPICase(null); setIsAPIModalOpen(true);
                   }
                 }}
@@ -796,7 +591,7 @@ export default function App() {
                   className="w-6 h-6 flex items-center justify-center rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all ml-1"
                   title="Clear Filters"
                 >
-                  <Search size={10} className="hidden" /> {/* Dummy to keep import used if needed, or better use X or Trash */}
+                  <Search size={10} className="hidden" />
                   <span className="text-[10px]">&times;</span>
                 </button>
               )}
@@ -804,48 +599,43 @@ export default function App() {
           </div>
         )}
 
-        <div className="flex-1 overflow-auto custom-scrollbar p-6 bg-black">
+        <div className="flex-1 overflow-auto p-6 scroll-smooth custom-scrollbar">
           {viewMode === 'dashboard' ? (
-            <Dashboard testCases={testCases} apiTestCases={apiTestCases} />
+            <Dashboard
+              modules={modules}
+              testCases={testCases}
+              apiTestCases={apiTestCases}
+              passRate={Math.round((testCases.filter(c => c.status === 'Passed').length / (testCases.length || 1)) * 100)}
+            />
           ) : viewMode === 'functional' ? (
             <TestCaseTable
               cases={filteredCases}
               selectedIds={selectedIds}
               executingId={executingId}
               activeProjectId={activeProjectId}
-              readOnly={activeProject?.role === 'viewer'}
               readStatus={readStatus}
-              onToggleSelect={(id) => {
-                const next = new Set(selectedIds);
-                if (next.has(id)) next.delete(id); else next.add(id);
-                setSelectedIds(next);
+              onToggleSelect={(id: string) => {
+                const newSet = new Set(selectedIds);
+                if (newSet.has(id)) newSet.delete(id);
+                else newSet.add(id);
+                setSelectedIds(newSet);
               }}
               onToggleSelectAll={() => {
-                setSelectedIds(selectedIds.size === filteredCases.length ? new Set() : new Set(filteredCases.map(c => c.id)));
+                if (selectedIds.size === filteredCases.length) setSelectedIds(new Set());
+                else setSelectedIds(new Set(filteredCases.map(c => c.id)));
               }}
-              onRun={handleRunAutomation}
-              onEdit={(tc) => {
-                if (activeProject?.role === 'viewer') return;
+              onEdit={(tc: TestCase) => {
+                const isPro = userDoc?.tier === 'pro' && userDoc?.validUntil?.toMillis() > Date.now();
+                if (!isPro && testCases.length > 2) {
+                  setQuotaMessage("Read-Only Mode: This project exceeds the Free Tier limit. Upgrade to Pro to edit.");
+                  return;
+                }
                 setEditingCase(tc); setIsCaseModalOpen(true);
               }}
-              onDelete={(id) => {
-                if (activeProject?.role === 'viewer') return;
-                setConfirmConfig({
-                  title: "Delete Test Case",
-                  message: "Are you sure you want to delete this test case permanently?",
-                  onConfirm: () => TestCaseService.delete(id)
-                });
-              }}
-              onStatusUpdate={(id, status) => handleQuickStatusUpdate(id, status, 'functional')}
-              onMessage={(tc) => {
-                setActiveCommentCase({ id: tc.id, title: tc.title, commentCount: tc.commentCount });
-                setIsCommentDrawerOpen(true);
-                if (user.uid === 'demo-user') setComments([]);
-                // Mark as read when opening
-                if (user.uid !== 'demo-user' && activeProjectId) {
-                  UserReadStatusService.markRead(activeProjectId, tc.id, tc.commentCount || 0, user.uid);
-                }
-              }}
+              onRun={handleRunAutomation}
+              onStatusUpdate={(id: string, s: any) => handleQuickStatusUpdate(id, s, 'functional')}
+              onMessage={(tc: TestCase) => { setActiveCommentCase({ id: tc.id, title: tc.title, commentCount: tc.commentCount }); setIsCommentDrawerOpen(true); }}
+              onDelete={(id: string) => deleteItems(new Set([id]), 'functional')}
             />
           ) : (
             <APITable
@@ -853,100 +643,59 @@ export default function App() {
               selectedIds={selectedIds}
               executingId={executingId}
               activeProjectId={activeProjectId}
-              readOnly={activeProject?.role === 'viewer'}
               readStatus={readStatus}
-              onToggleSelect={(id) => {
-                const next = new Set(selectedIds);
-                if (next.has(id)) next.delete(id); else next.add(id);
-                setSelectedIds(next);
+              onToggleSelect={(id: string) => {
+                const newSet = new Set(selectedIds);
+                if (newSet.has(id)) newSet.delete(id);
+                else newSet.add(id);
+                setSelectedIds(newSet);
               }}
               onToggleSelectAll={() => {
-                const filtered = apiTestCases.filter(c => c.projectId === activeProjectId); // Simple filter for now
-                setSelectedIds(selectedIds.size === filtered.length ? new Set() : new Set(filtered.map(c => c.id)));
+                if (selectedIds.size === filteredApiCases.length) setSelectedIds(new Set());
+                else setSelectedIds(new Set(filteredApiCases.map(c => c.id)));
               }}
-              onRun={async (tc) => {
-                if (activeProject?.role === 'viewer') return;
-                setExecutingId(tc.id);
-                log(`Sending ${tc.method} request to ${tc.url}...`);
-                await new Promise(r => setTimeout(r, 1000)); // Simulate request
-                const success = Math.random() > 0.2;
-                if (success) {
-                  log(`Response: 200 OK`, 'success');
-                  if (user.uid !== 'demo-user') await APITestCaseService.updateStatus(tc.id, 'Passed', user);
-                } else {
-                  log(`Response: 500 Server Error`, 'error');
-                  if (user.uid !== 'demo-user') await APITestCaseService.updateStatus(tc.id, 'Failed', user);
+              onEdit={(tc: APITestCase) => {
+                const isPro = userDoc?.tier === 'pro' && userDoc?.validUntil?.toMillis() > Date.now();
+                if (!isPro && apiTestCases.length > 2) {
+                  setQuotaMessage("Read-Only Mode: This project exceeds the Free Tier limit. Upgrade to Pro to edit.");
+                  return;
                 }
-                setExecutingId(null);
-              }}
-              onEdit={(tc) => {
-                if (activeProject?.role === 'viewer') return;
                 setEditingAPICase(tc); setIsAPIModalOpen(true);
               }}
-              onDelete={(id) => {
-                if (activeProject?.role === 'viewer') return;
-                setConfirmConfig({
-                  title: "Delete API Request",
-                  message: "Are you sure you want to delete this API request permanently?",
-                  onConfirm: () => APITestCaseService.delete(id)
-                });
-              }}
-              onStatusUpdate={(id, status) => handleQuickStatusUpdate(id, status, 'api')}
-              onMessage={(tc) => {
-                setActiveCommentCase({ id: tc.id, title: tc.title, commentCount: tc.commentCount });
-                setIsCommentDrawerOpen(true);
-                if (user.uid === 'demo-user') setComments([]);
-                if (user.uid !== 'demo-user' && activeProjectId) {
-                  UserReadStatusService.markRead(activeProjectId, tc.id, tc.commentCount || 0, user.uid);
-                }
-              }}
+              onRun={() => { }} // API run pending implementation or reuse handleRunAutomation? APITable has onRun.
+              onStatusUpdate={(id: string, s: any) => handleQuickStatusUpdate(id, s, 'api')}
+              onMessage={(tc: APITestCase) => { setActiveCommentCase({ id: tc.id, title: tc.title, commentCount: tc.commentCount }); setIsCommentDrawerOpen(true); }}
+              onDelete={(id: string) => deleteItems(new Set([id]), 'api')}
             />
           )}
         </div>
       </main>
 
+      {/* MODALS */}
       <ProjectModals
         mode={projectModalMode}
         onClose={() => setProjectModalMode(null)}
         activeProject={activeProject}
         user={user}
         modules={modules}
-        onSave={handleProjectSave}
+        onSave={(data) => handleProjectSave(data, projectModalMode)}
         onJoin={handleJoin}
-        onDelete={async (id, isOwner) => {
-          if (user.uid === 'demo-user') {
-            setProjects(prev => prev.filter(p => p.id !== id));
-            if (activeProjectId === id) setActiveProjectId(null);
-            setProjectModalMode(null);
-            return;
-          }
-
-          if (isOwner) {
-            await ProjectService.delete(id);
-          } else {
-            await ProjectService.leave(id, user.uid);
-          }
-          setProjectModalMode(null);
-          if (activeProjectId === id) setActiveProjectId(null);
-        }}
-        onAddModule={(name) => activeProjectId && ModuleService.add(name, activeProjectId)}
-        onUpdateModule={async (id, name) => {
-          if (user.uid === 'demo-user') {
-            setModules(prev => prev.map(m => m.id === id ? { ...m, name } : m));
-          } else {
-            await ModuleService.update(id, name);
-          }
-        }}
-        onDeleteModule={(id) => ModuleService.delete(id)}
+        onDelete={handleDeleteProject}
+        onAddModule={handleAddModule}
+        onUpdateModule={handleUpdateModule}
+        onDeleteModule={handleDeleteModule}
       />
 
       <TestCaseForm
         isOpen={isCaseModalOpen}
         onClose={() => setIsCaseModalOpen(false)}
         activeProjectId={activeProjectId}
-        modules={projectModules}
+        modules={modules}
         editingCase={editingCase}
-        onSave={handleTestCaseSave}
+        onSave={(data) => {
+          handleTestCaseSave(data, !editingCase);
+          setIsCaseModalOpen(false);
+        }}
         onRun={handleRunAutomation}
       />
 
@@ -954,39 +703,73 @@ export default function App() {
         isOpen={isAPIModalOpen}
         onClose={() => setIsAPIModalOpen(false)}
         activeProjectId={activeProjectId}
-        modules={projectModules}
+        modules={modules}
         editingCase={editingAPICase}
-        onSave={handleAPICaseSave}
+        onSave={(data) => {
+          handleAPICaseSave(data, !editingAPICase);
+          setIsAPIModalOpen(false);
+        }}
       />
+
+      {confirmConfig && (
+        <ConfirmModal
+          isOpen={true}
+          onClose={() => setConfirmConfig(null)}
+          onConfirm={confirmConfig.onConfirm}
+          title={confirmConfig.title}
+          message={confirmConfig.message}
+        />
+      )}
 
       <Terminal
         isOpen={isTerminalOpen}
-        onClose={() => !executingId && setIsTerminalOpen(false)}
+        onClose={() => setIsTerminalOpen(false)}
         logs={logs}
-        executingId={executingId}
       />
-      {
-        confirmConfig && (
-          <ConfirmModal
-            isOpen={true}
-            onClose={() => setConfirmConfig(null)}
-            onConfirm={confirmConfig.onConfirm}
-            title={confirmConfig.title}
-            message={confirmConfig.message}
-          />
-        )
-      }
 
       <CommentsDrawer
         isOpen={isCommentDrawerOpen}
-        onClose={() => setIsCommentDrawerOpen(false)}
-        testCaseId={activeCommentCase?.id || ''}
+        onClose={() => { setIsCommentDrawerOpen(false); setActiveCommentCase(null); }}
         testCaseTitle={activeCommentCase?.title || ''}
         comments={comments}
-        currentUser={user}
+        user={user}
         onAddComment={handleAddComment}
         onDeleteComment={handleDeleteComment}
       />
+
+      {isLicenseModalOpen && (
+        <LicenseRedemption
+          user={user}
+          userDoc={userDoc}
+          onClose={() => setIsLicenseModalOpen(false)}
+        />
+      )}
+
+      <QuotaModal
+        isOpen={!!quotaMessage}
+        onClose={() => setQuotaMessage(null)}
+        message={quotaMessage || ''}
+        onUpgrade={() => setIsLicenseModalOpen(true)}
+      />
+
     </div >
   );
 }
+
+// Simple Modal Wrapper for App level usage
+const Modal = ({ isOpen, onClose, title, children }: any) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="bg-[#0A0A0A] border border-white/10 rounded w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-200">
+        <div className="flex justify-between items-center p-4 border-b border-white/10 sticky top-0 bg-[#0A0A0A] z-10">
+          <h3 className="font-bold text-sm tracking-widest uppercase">{title}</h3>
+          <button onClick={onClose} className="text-white/40 hover:text-white transition-colors">&times;</button>
+        </div>
+        <div className="p-6">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};

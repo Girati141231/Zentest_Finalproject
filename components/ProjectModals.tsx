@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Check, Copy, Trash2, LogOut, Upload } from 'lucide-react';
 import Modal from './ui/Modal';
 import ConfirmModal from './ui/ConfirmModal';
+import AlertModal from './ui/AlertModal';
 import { Project, COLORS, Module, ModalMode, ProjectMember } from '../types';
 import { ProjectService } from '../services/db';
 
@@ -29,6 +30,7 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
   const [editingModName, setEditingModName] = useState('');
   const [copied, setCopied] = useState(false);
   const [confirmConfig, setConfirmConfig] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
+  const [alertConfig, setAlertConfig] = useState<{ message: string; type: 'info' | 'success' | 'error' } | null>(null);
   const [members, setMembers] = useState<ProjectMember[]>([]);
 
   useEffect(() => {
@@ -42,10 +44,18 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
           return a.displayName.localeCompare(b.displayName);
         });
         setMembers(sorted);
+
+        // Check if I need to sync?
+        if (user && user.uid !== 'demo-user') {
+          const me = data.find(m => m.uid === user.uid);
+          if (me && (me.photoURL !== user.photoURL || me.displayName !== user.displayName)) {
+            ProjectService.syncMemberProfile(activeProject.id, user); // Fire and forget
+          }
+        }
       });
       return () => { if (unsub) unsub(); };
     }
-  }, [mode, activeProject]);
+  }, [mode, activeProject, user]);
 
   useEffect(() => {
     if (mode === 'edit' && activeProject) {
@@ -61,6 +71,7 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
       navigator.clipboard.writeText(activeProject.id);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      setAlertConfig({ message: 'Scope ID copied to clipboard.', type: 'info' });
     }
   };
 
@@ -81,7 +92,7 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
     if (!file) return;
 
     if (file.size > 500 * 1024) {
-      alert("Image is too large. Please upload an image smaller than 500KB.");
+      setAlertConfig({ message: "Image is too large. Please upload an image smaller than 500KB.", type: 'error' });
       return;
     }
 
@@ -109,7 +120,7 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
             <input
               type="text"
               value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setJoinCode(e.target.value)}
               className="w-full bg-white/[0.03] border border-white/10 rounded-sm px-4 py-3 outline-none focus:border-white/20 focus:bg-white/[0.05] transition-all text-xs text-white font-mono placeholder:text-white/10"
               placeholder="e.g. x8Y7z9..."
             />
@@ -130,7 +141,7 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
               <input
                 type="text"
                 value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, name: e.target.value })}
                 className="w-full bg-white/[0.03] border border-white/10 rounded-sm px-3 py-2.5 outline-none focus:border-white/20 transition-all text-xs text-white"
                 placeholder="Enter scope name..."
               />
@@ -172,7 +183,7 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
             <div className="space-y-2">
               <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest">Identity Color</label>
               <div className="flex flex-wrap gap-2 pt-1">
-                {COLORS.map(c => (
+                {COLORS.map((c: string) => (
                   <button
                     key={c}
                     onClick={() => setForm({ ...form, color: c })}
@@ -202,7 +213,7 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
                   <input
                     type="text"
                     value={newModName}
-                    onChange={(e) => setNewModName(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewModName(e.target.value)}
                     placeholder="New unit ID..."
                     className="flex-1 bg-white/[0.03] border border-white/10 rounded-sm px-3 py-2 outline-none text-xs text-white focus:border-white/20"
                   />
@@ -214,15 +225,15 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
                   </button>
                 </div>
                 <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto custom-scrollbar">
-                  {modules.map(m => (
+                  {modules.map((m: Module) => (
                     <div key={m.id} className="flex justify-between items-center p-2.5 bg-white/[0.02] border border-white/5 rounded-sm group hover:bg-white/[0.04] transition-colors relative">
                       {editingModId === m.id ? (
                         <input
                           autoFocus
                           value={editingModName}
-                          onChange={(e) => setEditingModName(e.target.value)}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingModName(e.target.value)}
                           onBlur={() => handleUpdateModule(m.id)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleUpdateModule(m.id)}
+                          onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && handleUpdateModule(m.id)}
                           className="bg-black border border-white/20 text-[11px] font-bold text-white px-2 py-0.5 w-full outline-none"
                         />
                       ) : (
@@ -251,8 +262,8 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
               <div className="pt-6 border-t border-white/5">
                 <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest block mb-3">Team Members ({members.length})</label>
 
-                <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
-                  {members.map(member => {
+                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                  {members.map((member: ProjectMember) => {
                     const isMe = member.uid === user.uid;
                     const amIOwner = activeProject.owner === user.uid;
                     const isMemberOwner = member.role === 'owner';
@@ -261,7 +272,7 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
                       <div key={member.uid} className="flex justify-between items-center p-2.5 bg-white/[0.02] border border-white/5 rounded-sm">
                         <div className="flex items-center gap-3">
                           {member.photoURL ? (
-                            <img src={member.photoURL} className="w-6 h-6 rounded-full" alt="avatar" />
+                            <img src={member.photoURL} className="w-6 h-6 rounded-full" alt="avatar" referrerPolicy="no-referrer" />
                           ) : (
                             <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-[10px] font-bold text-blue-400">
                               {member.displayName?.[0] || '?'}
@@ -359,6 +370,12 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
           />
         )
       }
+      <AlertModal
+        isOpen={!!alertConfig}
+        onClose={() => setAlertConfig(null)}
+        message={alertConfig?.message || ''}
+        type={alertConfig?.type}
+      />
     </Modal >
   );
 };

@@ -90,3 +90,23 @@ export type ModalMode = 'create' | 'edit' | 'join' | null;
 export const PRIORITIES: Priority[] = ['Critical', 'High', 'Medium', 'Low'];
 export const STATUSES: Status[] = ['Passed', 'Failed', 'Pending'];
 export const COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#a855f7', '#6366f1'];
+
+export interface LicenseKey {
+  key: string;
+  durationDays: number;
+  isUsed: boolean;
+  usedBy?: string;
+  usedByName?: string;
+  usedByEmail?: string;
+  usedAt?: number;
+  createdAt: number;
+}
+
+export interface User {
+  uid: string;
+  email?: string;
+  displayName?: string;
+  photoURL?: string;
+  tier?: 'free' | 'pro';
+  validUntil?: any;
+}

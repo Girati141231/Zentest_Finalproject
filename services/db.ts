@@ -159,6 +159,24 @@ export const ProjectService = {
     }
   },
 
+  syncMemberProfile: async (projectId: string, user: any) => {
+    if (!isConfigured) return;
+    const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'projects', projectId, 'members', user.uid);
+    // Silent update, no await needed usually but better to be safe
+    // We only update if data is different? Or just always update on open?
+    // Always update is safer to catch any drift, it's cheap enough.
+    try {
+      await updateDoc(memberRef, {
+        displayName: user.displayName,
+        photoURL: user.photoURL,
+        email: user.email
+      });
+    } catch (e) {
+      // Ignore if doc doesn't exist (viewer who hasn't been added properly? or just fails)
+      console.log("Sync profile silent fail:", e);
+    }
+  },
+
   update: async (id: string, data: Partial<Project>) => {
     if (!isConfigured) { await delay(300); return; }
     const ref = doc(db, PUBLIC_DATA_PATH[0], PUBLIC_DATA_PATH[1], PUBLIC_DATA_PATH[2], PUBLIC_DATA_PATH[3], 'projects', id);

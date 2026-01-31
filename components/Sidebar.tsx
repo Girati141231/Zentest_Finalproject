@@ -1,31 +1,39 @@
 import React, { useState } from 'react';
 import {
-  Menu, ChevronLeft, Plus, Share2, Settings, LogOut, User
+  Menu, ChevronLeft, Plus, Share2, Settings, LogOut, User, Shield, Key
 } from 'lucide-react';
 import { Project, COLORS } from '../types';
 
 interface SidebarProps {
   user: any;
+  isPro?: boolean; // New prop
   projects: Project[];
   activeProjectId: string | null;
   onProjectSelect: (id: string) => void;
   onCreateProject: () => void;
   onJoinProject: () => void;
   onSettings: () => void;
+  onLicense: () => void;
+  onCreateLicense?: () => void; // New optional prop for testing
   onLogout: () => void;
+  onBackToHome: () => void; // New prop
   isExpanded: boolean;
   onToggleExpand: () => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
   user,
+  isPro, // Destructure
   projects,
   activeProjectId,
   onProjectSelect,
   onCreateProject,
   onJoinProject,
   onSettings,
+  onLicense, // Destructure
+  onCreateLicense,
   onLogout,
+  onBackToHome, // Destructure
   isExpanded,
   onToggleExpand
 }) => {
@@ -36,17 +44,21 @@ const Sidebar: React.FC<SidebarProps> = ({
       className={`border-r border-white/10 flex flex-col transition-all duration-300 ease-in-out bg-[#050505] overflow-hidden ${isExpanded ? 'w-64' : 'w-16'}`}
     >
       <div className="p-4 flex items-center justify-between mb-2 h-16 flex-shrink-0">
-        <div className={`flex items-center gap-3 transition-opacity duration-300 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 pointer-events-none'}`}>
-          <div className="w-8 h-8 bg-white rounded-sm flex items-center justify-center flex-shrink-0 shadow-[0_0_15px_rgba(255,255,255,0.3)]">
-            <span className="text-black font-black text-lg">Z</span>
+        <button
+          onClick={onBackToHome}
+          className={`flex items-center gap-3 transition-opacity duration-300 hover:opacity-80 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 pointer-events-none'}`}
+          title="Back to Landing Page"
+        >
+          <div className="w-8 h-8 bg-black border border-white/20 rounded-sm flex items-center justify-center flex-shrink-0 shadow-[0_0_15px_rgba(255,255,255,0.1)]">
+            <ChevronLeft size={16} className="text-white" />
           </div>
           <span className="font-bold tracking-tighter text-white whitespace-nowrap text-lg">ZENTEST</span>
-        </div>
+        </button>
         <button
           onClick={onToggleExpand}
           className={`text-white/40 hover:text-white transition-colors p-1.5 rounded-sm hover:bg-white/5 ${!isExpanded ? 'mx-auto' : ''}`}
         >
-          {isExpanded ? <ChevronLeft size={18} /> : <Menu size={18} />}
+          {isExpanded ? <ChevronLeft size={18} className="rotate-180" /> : <Menu size={18} />}
         </button>
       </div>
 
@@ -100,6 +112,23 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       <div className="mt-auto p-4 border-t border-white/5 flex flex-col gap-4 bg-[#080808]">
+        {onCreateLicense && (
+          <button
+            onClick={onCreateLicense}
+            className={`flex items-center text-white/30 hover:text-white transition-colors hover:bg-white/5 rounded-sm py-1 border border-dashed border-white/10 hover:border-white/30 ${isExpanded ? 'gap-3 px-2' : 'justify-center'}`}
+            title="Create Real License (Admin)"
+          >
+            <Key size={14} className="flex-shrink-0" />
+            {isExpanded && <span className="font-mono text-[10px] animate-in fade-in duration-300">Create Key</span>}
+          </button>
+        )}
+        <button
+          onClick={onLicense}
+          className={`flex items-center text-white/40 hover:text-green-400 transition-colors hover:bg-green-500/10 rounded-sm py-1 ${isExpanded ? 'gap-3 px-2' : 'justify-center'}`}
+        >
+          <Shield size={18} className="flex-shrink-0" />
+          {isExpanded && <span className="font-medium text-xs animate-in fade-in duration-300">Membership</span>}
+        </button>
         <button
           disabled={!activeProjectId}
           onClick={onSettings}
@@ -132,7 +161,14 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
           {isExpanded && (
             <div className="flex flex-col min-w-0 animate-in fade-in duration-300">
-              <span className="text-[11px] font-bold text-white truncate">{user.displayName || 'Enterprise User'}</span>
+              <span className="text-[11px] font-bold truncate text-white">
+                {user.displayName || 'Enterprise User'}
+                {isPro ? (
+                  <span className="ml-2 text-[9px] bg-green-900/40 text-green-400 px-1.5 py-0.5 rounded border border-green-500/30 animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.2)] font-mono tracking-wider">PRO</span>
+                ) : (
+                  <span className="ml-2 text-[9px] bg-white/10 text-white/40 px-1.5 py-0.5 rounded border border-white/10 font-mono tracking-wider">FREE</span>
+                )}
+              </span>
               <span className="text-[9px] text-white/30 truncate font-mono">{user.email}</span>
             </div>
           )}

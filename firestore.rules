@@ -12,14 +12,52 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    function isAdmin() {
+      return request.auth.token.email == 'zentest48@gmail.com';
+    }
+
+    match /users/{userId} {
+      // User can read/write own doc. Admin can read/write ALL docs.
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isOwner() || isAdmin());
+      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow create: if isAuthenticated() && request.auth.uid == userId; // Users create their own doc on first login
+    }
+
+    match /licenseKeys/{keyId} {
+        // Admin can do EVERYTHING (list, read, create, update, delete)
+        allow read, list: if isAuthenticated() && isAdmin();
+        allow create, delete: if isAuthenticated() && isAdmin();
+        
+        // Regular user can ONLY read/get a specific key by ID (if they know it) to redeem it
+        // AND update it ONLY if claiming it
+        allow get: if isAuthenticated(); 
+        allow update: if isAuthenticated() 
+                      && resource.data.isUsed == false 
+                      && request.resource.data.isUsed == true
+                      && request.resource.data.usedBy == request.auth.uid
+                      && request.resource.data.usedAt == request.time;
+    }
+
+    // 1. User Specific Data (My Projects)
+    // Path: artifacts/{appId}/users/{uid}/myProjects/{projectId}
     // 1. User Specific Data (My Projects)
     // Path: artifacts/{appId}/users/{uid}/myProjects/{projectId}
     match /artifacts/{appId}/users/{userId}/{document=**} {
-      allow read, write: if isOwner(userId);
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
     }
     
     // 2. Public Shared Data (Projects, Modules, Test Cases)
     // Path: artifacts/{appId}/public/data/{collection}/{id}
+    // 2. Public Shared Data (Projects, Modules, Test Cases)
+    // Path: artifacts/{appId}/public/data/{collection}/{id}
+    
+    // Special rule for Projects: Only owner can delete
+    match /artifacts/{appId}/public/data/projects/{projectId} {
+       allow read, create, update: if isAuthenticated();
+       allow delete: if isAuthenticated() && resource.data.owner == request.auth.uid;
+    }
+
     match /artifacts/{appId}/public/data/{collectionName}/{document=**} {
       // In a real production app, you might want stricter rules here
       // e.g. only allow project owner to write
