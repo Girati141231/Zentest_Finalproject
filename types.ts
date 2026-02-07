@@ -40,6 +40,8 @@ export interface TestCase {
   script: string;
   hasAutomation: boolean;
   automationSteps?: any[];
+  actualResult?: string;
+  screenshots?: { stepIndex: number; base64: string; status: 'success' | 'failed' }[];
   lastUpdatedBy?: string;
   lastUpdatedByName?: string;
   lastUpdatedByPhoto?: string;
