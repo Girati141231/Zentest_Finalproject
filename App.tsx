@@ -18,7 +18,7 @@ import {
 
 // Core
 import { auth, db, appId, isConfigured } from './firebase';
-import { Project, Module, TestCase, APITestCase, LogEntry, ModalMode, STATUSES, Comment } from './types';
+import { Project, Module, TestCase, APITestCase, LogEntry, ModalMode, STATUSES, Comment, Status } from './types';
 import { ProjectService, TestCaseService, APITestCaseService, ModuleService, CommentService, UserReadStatusService } from './services/db';
 
 // Components
@@ -34,6 +34,7 @@ import LandingPage from './components/LandingPage';
 import ConfirmModal from './components/ui/ConfirmModal';
 import CommentsDrawer from './components/CommentsDrawer';
 import LicenseRedemption from './components/LicenseRedemption';
+import AlertModal from './components/ui/AlertModal';
 
 // Hooks
 import { useAuth } from './hooks/useAuth';
@@ -96,6 +97,7 @@ export default function App() {
   const [editingAPICase, setEditingAPICase] = useState<APITestCase | null>(null);
   const [confirmConfig, setConfirmConfig] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
   const [quotaMessage, setQuotaMessage] = useState<string | null>(null); // For QuotaModal
+  const [alertConfig, setAlertConfig] = useState<{ message: string; type: 'info' | 'success' | 'error' } | null>(null);
 
   // Comments
   const [isCommentDrawerOpen, setIsCommentDrawerOpen] = useState(false);
@@ -210,11 +212,12 @@ export default function App() {
     document.body.removeChild(link);
   };
 
-  const handleRunAutomation = async (testCase: TestCase) => {
+  const handleRunAutomation = async (testCase: TestCase, isBulk = false) => {
     setExecutingId(testCase.id);
-    setLogs([]);
-    setIsTerminalOpen(true);
-
+    if (!isBulk) {
+      setLogs([]);
+      setIsTerminalOpen(true);
+    }
     log(`Initializing Compass Automation Engine...`);
     log(`Connecting to local automation server at http://localhost:3002...`);
 
@@ -252,22 +255,39 @@ export default function App() {
         log(`>>> AUTOMATION FLOW COMPLETED SUCCESSFULLY`, 'success');
         const isTemp = testCase.id.startsWith('TEMP-');
 
-        // Use hook function or manual update if temp
+        const nextRound = (testCase.round || 1) + 1;
+        const finalData = {
+          ...testCase,
+          status: 'Passed' as Status,
+          round: nextRound,
+          screenshots: result.screenshots || [],
+          actualResult: 'ระบบทำงานได้ถูกต้องตามขั้นตอนที่กำหนด'
+        };
+
         if (user.uid === 'demo-user' || isTemp) {
           updateStatus(testCase.id, 'Passed', 'functional');
         } else {
-          await TestCaseService.updateStatus(testCase.id, 'Passed', user);
+          await TestCaseService.save(finalData, false, user);
         }
-        setExecutingId(null);
+        if (!isBulk) setExecutingId(null);
         return true;
       } else {
         log(`>>> AUTOMATION FLOW FAILED: ${result.message}`, 'error');
+        const nextRound = (testCase.round || 1) + 1;
+        const failedData = {
+          ...testCase,
+          status: 'Failed' as Status,
+          round: nextRound,
+          screenshots: result.screenshots || [],
+          actualResult: `เกิดข้อผิดพลาด: ${result.message || 'ไม่สามารถดำเนินการตามขั้นตอนได้'}`
+        };
+
         if (user.uid === 'demo-user') {
           updateStatus(testCase.id, 'Failed', 'functional');
         } else {
-          await TestCaseService.updateStatus(testCase.id, 'Failed', user);
+          await TestCaseService.save(failedData, false, user);
         }
-        setExecutingId(null);
+        if (!isBulk) setExecutingId(null);
         return false;
       }
     } catch (error: any) {
@@ -280,7 +300,7 @@ export default function App() {
       if (isNetworkError) {
         log(`Suggestion: Please check if the automation server is running on port 3002 (npm start in /automation-server)`, 'error');
       }
-      setExecutingId(null);
+      if (!isBulk) setExecutingId(null);
       return false;
     }
   };
@@ -293,22 +313,22 @@ export default function App() {
     setLogs([]);
     setIsTerminalOpen(true);
 
-    log(`>>> STARTING BULK RUN: ${targetCases.length} Cases`, 'info');
+    log(`>>> STARTING REAL-TIME BULK EXECUTION: ${targetCases.length} Scenarios`, 'info');
     let passed = 0;
 
     for (const tc of targetCases) {
-      log(`Testing ${tc.id}...`);
-      await new Promise(r => setTimeout(r, 400));
-      const success = Math.random() > 0.15;
-      if (success) {
-        log(`PASSED: ${tc.title}`, 'success');
-        updateStatus(tc.id, 'Passed', 'functional');
-        passed++;
-      } else {
-        log(`FAILED: ${tc.title}`, 'error');
-        updateStatus(tc.id, 'Failed', 'functional');
-      }
+      log(`--------------------------------------------------`);
+      log(`TRIGGERING: ${tc.id} - ${tc.title}`, 'info');
+
+      const success = await handleRunAutomation(tc, true);
+      if (success) passed++;
+
+      // Small cooling delay between sessions
+      await new Promise(r => setTimeout(r, 1000));
     }
+
+    log(`--------------------------------------------------`);
+    log(`>>> BULK EXECUTION FINISHED: ${passed}/${targetCases.length} Passed`, passed === targetCases.length ? 'success' : 'info');
 
     setExecutingId(null);
     setSelectedIds(new Set());
@@ -466,25 +486,34 @@ export default function App() {
               </button>
             </div>
             {((viewMode === 'functional' && filteredCases.length > 0) || (viewMode === 'api' && filteredApiCases.length > 0)) && (
-              <button
-                onClick={handleExportCSV}
-                className="text-white/40 hover:text-white px-3 py-2 rounded-sm text-xs font-bold transition-all flex items-center gap-2 border border-transparent hover:border-white/10 hover:bg-white/5"
-                title="Export to CSV"
-              >
-                <Download size={14} /> <span className="hidden sm:inline">EXPORT</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleExportCSV}
+                  className="h-8 px-3 rounded-sm text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 border border-white/10 bg-white/5 text-white/50 hover:text-white hover:bg-white/10 active:scale-95"
+                  title="Export to CSV"
+                >
+                  <Download size={14} />
+                  <span>EXPORT</span>
+                </button>
 
                 {selectedIds.size > 0 && (
-                  <>
-                    <button onClick={handleBulkDelete} className="bg-red-500/10 text-red-500 border border-red-500/20 px-4 py-2 rounded-sm text-xs font-bold hover:bg-red-500/20 transition-all flex items-center gap-2 animate-in slide-in-from-right-4 shadow-lg shadow-red-900/10">
+                  <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-300">
+                    <div className="h-4 w-px bg-white/10 mx-1"></div>
+                    <button
+                      onClick={handleBulkDelete}
+                      className="h-8 px-4 bg-red-500/10 text-red-500 border border-red-500/20 rounded-sm text-[10px] font-bold uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all flex items-center gap-2 active:scale-95"
+                    >
                       <Trash2 size={14} /> DELETE ({selectedIds.size})
                     </button>
-                    <button onClick={handleBulkRun} className="bg-emerald-600 text-white px-4 py-2 rounded-sm text-xs font-bold hover:bg-emerald-500 transition-all flex items-center gap-2 animate-in slide-in-from-right-2 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-                      <Play size={14} fill="white" /> EXECUTE ({selectedIds.size})
+                    <button
+                      onClick={handleBulkRun}
+                      className="h-8 px-4 bg-emerald-600 text-white rounded-sm text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-500 transition-all flex items-center gap-2 active:scale-95 shadow-lg shadow-emerald-900/20"
+                    >
+                      <Play size={14} fill="currentColor" /> EXECUTE ({selectedIds.size})
                     </button>
-                  </>
+                  </div>
                 )}
-
-              </button>
+              </div>
             )}
 
             {/* Create New Button - Hidden for Viewers */}
@@ -602,10 +631,8 @@ export default function App() {
         <div className="flex-1 overflow-auto p-6 scroll-smooth custom-scrollbar">
           {viewMode === 'dashboard' ? (
             <Dashboard
-              modules={modules}
               testCases={testCases}
               apiTestCases={apiTestCases}
-              passRate={Math.round((testCases.filter(c => c.status === 'Passed').length / (testCases.length || 1)) * 100)}
             />
           ) : viewMode === 'functional' ? (
             <TestCaseTable
@@ -692,11 +719,12 @@ export default function App() {
         activeProjectId={activeProjectId}
         modules={modules}
         editingCase={editingCase}
-        onSave={(data) => {
-          handleTestCaseSave(data, !editingCase);
-          setIsCaseModalOpen(false);
+        onSave={async (data, isNew) => {
+          await handleTestCaseSave(data, isNew);
+          // Don't auto-close here, let TestCaseForm handle its own single-save close
         }}
         onRun={handleRunAutomation}
+        onAlert={(message, type) => setAlertConfig({ message, type })}
       />
 
       <APIForm
@@ -705,9 +733,9 @@ export default function App() {
         activeProjectId={activeProjectId}
         modules={modules}
         editingCase={editingAPICase}
-        onSave={(data) => {
-          handleAPICaseSave(data, !editingAPICase);
-          setIsAPIModalOpen(false);
+        onSave={async (data, isNew) => {
+          await handleAPICaseSave(data, isNew);
+          if (!editingAPICase) setIsAPIModalOpen(false);
         }}
       />
 
@@ -725,16 +753,25 @@ export default function App() {
         isOpen={isTerminalOpen}
         onClose={() => setIsTerminalOpen(false)}
         logs={logs}
+        executingId={executingId || ''}
       />
 
       <CommentsDrawer
         isOpen={isCommentDrawerOpen}
         onClose={() => { setIsCommentDrawerOpen(false); setActiveCommentCase(null); }}
+        testCaseId={activeCommentCase?.id || ''}
         testCaseTitle={activeCommentCase?.title || ''}
         comments={comments}
-        user={user}
+        currentUser={user}
         onAddComment={handleAddComment}
         onDeleteComment={handleDeleteComment}
+      />
+
+      <AlertModal
+        isOpen={!!alertConfig}
+        onClose={() => setAlertConfig(null)}
+        message={alertConfig?.message || ''}
+        type={alertConfig?.type}
       />
 
       {isLicenseModalOpen && (

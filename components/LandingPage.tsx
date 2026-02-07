@@ -77,7 +77,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ user, onLogin, onDemo, onEnte
                         <>
                             Welcome Back, <br />
                             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-white">
-                                {user.displayName?.split(' ')[0] || 'Tester'}
+                                {user.displayName || 'Tester'}
                             </span>
                         </>
                     ) : (

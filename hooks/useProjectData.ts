@@ -47,9 +47,10 @@ export const useProjectData = (user: any, activeProjectId: string | null) => {
         const casesQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'testCases'), where('projectId', '==', activeProjectId));
         const apiQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'apiTestCases'), where('projectId', '==', activeProjectId));
 
-        const unsubModules = onSnapshot(modulesQuery, (s) => setModules(s.docs.map(d => ({ id: d.id, ...d.data() } as Module))));
-        const unsubCases = onSnapshot(casesQuery, (s) => setTestCases(s.docs.map(d => ({ id: d.id, ...d.data() } as TestCase))));
-        const unsubAPI = onSnapshot(apiQuery, (s) => setApiTestCases(s.docs.map(d => ({ id: d.id, ...d.data() } as APITestCase))));
+        const opts = { includeMetadataChanges: true };
+        const unsubModules = onSnapshot(modulesQuery, opts, (s: any) => setModules(s.docs.map((d: any) => ({ id: d.id, ...d.data() } as Module))));
+        const unsubCases = onSnapshot(casesQuery, opts, (s: any) => setTestCases(s.docs.map((d: any) => ({ id: d.id, ...d.data() } as TestCase))));
+        const unsubAPI = onSnapshot(apiQuery, opts, (s: any) => setApiTestCases(s.docs.map((d: any) => ({ id: d.id, ...d.data() } as APITestCase))));
 
         return () => { unsubModules(); unsubCases(); unsubAPI(); };
     }, [user, activeProjectId]);
@@ -62,27 +63,49 @@ export const useProjectData = (user: any, activeProjectId: string | null) => {
 
     // Actions
     const handleTestCaseSave = async (data: Partial<TestCase>, isNew: boolean) => {
+        const audit = {
+            lastUpdatedBy: user?.uid,
+            lastUpdatedByName: user?.displayName || 'Unknown',
+            lastUpdatedByPhoto: user?.photoURL || null,
+            timestamp: Date.now()
+        };
+        const payload = { ...data, ...audit };
+
+        // Optimistic Update
+        if (!isNew && data.id) {
+            setTestCases((prev: TestCase[]) => prev.map(c => c.id === data.id ? { ...c, ...payload } as TestCase : c));
+        }
+
         if (user.uid === 'demo-user') {
             if (isNew) {
-                setTestCases((prev: TestCase[]) => [...prev, { ...data, id: `TC-${Math.floor(Math.random() * 10000)}`, timestamp: Date.now() } as TestCase]);
-            } else {
-                setTestCases((prev: TestCase[]) => prev.map(c => c.id === data.id ? { ...c, ...data } : c));
+                setTestCases((prev: TestCase[]) => [...prev, { ...payload, id: `TC-${Math.floor(Math.random() * 10000)}` } as TestCase]);
             }
             return;
         }
-        await TestCaseService.save(data, isNew, user);
+        await TestCaseService.save(payload, isNew, user);
     };
 
     const handleAPICaseSave = async (data: Partial<APITestCase>, isNew: boolean) => {
+        const audit = {
+            lastUpdatedBy: user?.uid,
+            lastUpdatedByName: user?.displayName || 'Unknown',
+            lastUpdatedByPhoto: user?.photoURL || null,
+            timestamp: Date.now()
+        };
+        const payload = { ...data, ...audit };
+
+        // Optimistic Update
+        if (!isNew && data.id) {
+            setApiTestCases((prev: APITestCase[]) => prev.map(c => c.id === data.id ? { ...c, ...payload } as APITestCase : c));
+        }
+
         if (user.uid === 'demo-user') {
             if (isNew) {
-                setApiTestCases((prev: APITestCase[]) => [...prev, { ...data, id: `API-${Math.floor(Math.random() * 10000)}`, timestamp: Date.now() } as APITestCase]);
-            } else {
-                setApiTestCases((prev: APITestCase[]) => prev.map(c => c.id === data.id ? { ...c, ...data } : c));
+                setApiTestCases((prev: APITestCase[]) => [...prev, { ...payload, id: `API-${Math.floor(Math.random() * 10000)}` } as APITestCase]);
             }
             return;
         }
-        await APITestCaseService.save(data, isNew, user);
+        await APITestCaseService.save(payload, isNew, user);
     };
 
     const deleteItems = async (ids: Set<string>, viewMode: 'functional' | 'api') => {
@@ -97,15 +120,16 @@ export const useProjectData = (user: any, activeProjectId: string | null) => {
     };
 
     const updateStatus = async (id: string, status: 'Passed' | 'Failed', type: 'functional' | 'api') => {
-        if (user.uid === 'demo-user') {
-            const update = { status, timestamp: Date.now(), lastUpdatedBy: 'demo-user', lastUpdatedByName: 'Guest User' };
-            if (type === 'functional') {
-                setTestCases((prev: TestCase[]) => prev.map(c => c.id === id ? { ...c, ...update } : c));
-            } else {
-                setApiTestCases((prev: APITestCase[]) => prev.map(c => c.id === id ? { ...c, ...update } : c));
-            }
-            return;
+        // Optimistic Update
+        const update = { status, timestamp: Date.now(), lastUpdatedBy: user?.uid, lastUpdatedByName: user?.displayName || 'Guest' };
+        if (type === 'functional') {
+            setTestCases((prev: TestCase[]) => prev.map(c => c.id === id ? { ...c, ...update } as TestCase : c));
+        } else {
+            setApiTestCases((prev: APITestCase[]) => prev.map(c => c.id === id ? { ...c, ...update } : c));
         }
+
+        if (user.uid === 'demo-user') return;
+
         if (type === 'functional') await TestCaseService.updateStatus(id, status, user);
         else await APITestCaseService.updateStatus(id, status, user);
     };
