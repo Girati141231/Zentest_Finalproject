@@ -180,19 +180,36 @@ app.post('/run', async (req, res) => {
                         await locator.fill(step.value || '');
                     }
                 } else if (step.type === 'ASSERT_URL') {
-                    await page.waitForURL(step.value, { timeout: 5000 });
+                    const currentUrl = page.url();
+                    console.log(`[Assert] Checking URL... Expected to contain: "${step.value}" | Current: "${currentUrl}"`);
+                    
+                    // Instant check first
+                    if (currentUrl.includes(step.value)) {
+                        console.log('[Assert] URL Match (Instant)');
+                    } else {
+                        // Wait if not immediately matching (Reduced to 20s)
+                        await page.waitForURL(url => url.href.includes(step.value), { timeout: 20000 });
+                        console.log('[Assert] URL Match (After Wait)');
+                    }
                 } else if (step.type === 'ASSERT_VISIBLE') {
                     const selector = step.xpath ? `xpath=${step.xpath}` : step.id ? `#${step.id}` : null;
-                    if (selector) await page.locator(selector).waitFor({ state: 'visible', timeout: 5000 });
+                    if (selector) {
+                        console.log(`[Assert] Waiting for element: ${selector}`);
+                        await page.locator(selector).waitFor({ state: 'visible', timeout: 10000 });
+                    }
                 }
 
-                // Capture success screenshot
-                const screenshot = await page.screenshot({ type: 'jpeg', quality: 60 });
-                screenshots.push({
-                    stepIndex: index,
-                    base64: `data:image/jpeg;base64,${screenshot.toString('base64')}`,
-                    status: 'success'
-                });
+                // Capture success screenshot (safely)
+                try {
+                    const screenshot = await page.screenshot({ type: 'jpeg', quality: 60 });
+                    screenshots.push({
+                        stepIndex: index,
+                        base64: `data:image/jpeg;base64,${screenshot.toString('base64')}`,
+                        status: 'success'
+                    });
+                } catch (screenErr) {
+                    console.warn(`[Screenshot] Failed to capture step ${index}:`, screenErr.message);
+                }
 
                 logs.push(`${logPrefix} Success`);
             } catch (e) {
@@ -200,7 +217,8 @@ app.post('/run', async (req, res) => {
                 let userFriendlyError = e.message.split('\n')[0];
                 try {
                     const errorKeywords = ['รหัสผ่านไม่ถูกต้อง', 'ไม่ถูกต้อง', 'ล้มเหลว', 'error', 'failed', 'invalid', 'incorrect', 'wrong'];
-                    const pageText = await page.innerText('body').catch(() => '');
+                    // Use a shorter timeout to check body text if failing
+                    const pageText = await page.innerText('body', { timeout: 2000 }).catch(() => '');
                     const foundKeyword = errorKeywords.find(kw => pageText.toLowerCase().includes(kw));
                     
                     if (foundKeyword) {
@@ -210,14 +228,21 @@ app.post('/run', async (req, res) => {
                     }
                 } catch (checkErr) { /* fallback to original error */ }
 
-                const failScreenshot = await page.screenshot({ type: 'jpeg', quality: 60 });
-                screenshots.push({
-                    stepIndex: index,
-                    base64: `data:image/jpeg;base64,${failScreenshot.toString('base64')}`,
-                    status: 'failed'
-                });
+                try {
+                   const failScreenshot = await page.screenshot({ type: 'jpeg', quality: 60 });
+                   screenshots.push({
+                       stepIndex: index,
+                       base64: `data:image/jpeg;base64,${failScreenshot.toString('base64')}`,
+                       status: 'failed'
+                   });
+                } catch (screenErr) {
+                    console.warn(`[Screenshot] Failed to capture failure at step ${index}:`, screenErr.message);
+                }
 
                 logs.push(`${logPrefix} Failed: ${userFriendlyError}`);
+                // Close browser on failure
+                try { await browser.close(); } catch (e) {}
+
                 res.json({ 
                     status: 'failed', 
                     message: userFriendlyError, 
@@ -227,6 +252,10 @@ app.post('/run', async (req, res) => {
                 return;
             }
         }
+        
+        // Close browser immediately on success
+        try { await browser.close(); } catch (e) {}
+        
         res.json({ status: 'success', logs, screenshots });
     } catch (error) {
         console.error('CRITICAL ERROR in /run:', error);
