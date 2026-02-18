@@ -72,7 +72,7 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
                 {cases.length > 0 && selectedIds.size === cases.length ? <CheckSquare size={16} /> : <Square size={16} className="opacity-30" />}
               </button>
             </th>
-            <th className="px-4 py-3 font-bold w-[160px]">Identifer & Scenario</th>
+            <th className="px-4 py-3 font-bold w-[220px]">Identifer & Scenario</th>
             <th className="px-4 py-3 font-bold">Sequence & Expected Outcome</th>
             <th className="px-4 py-3 font-bold w-[90px]">Priority</th>
             <th className="px-4 py-3 font-bold w-[60px] text-center">Auto</th>
@@ -91,10 +91,10 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
               </td>
               <td className="px-4 py-4 align-top">
                 <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-2 text-sm font-bold tracking-tight whitespace-nowrap">
+                  <div className="flex items-center gap-2 text-sm font-bold tracking-tight flex-wrap">
                     <span className="text-blue-400">{c.id}</span>
                     <span className="w-[1px] h-2 bg-white/10"></span>
-                    <span className="text-emerald-500 uppercase">{c.module || 'GENERAL'}</span>
+                    <span className="text-emerald-500 uppercase text-[10px]">{c.module || 'GENERAL'}</span>
                     <span className="w-[1px] h-2 bg-white/10"></span>
                     <span className="text-white/40">RD:{c.round || 1}</span>
                   </div>

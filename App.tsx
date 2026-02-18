@@ -279,7 +279,7 @@ export default function App() {
           await TestCaseService.save(finalData, false, user);
         }
         if (!isBulk) setExecutingId(null);
-        return true;
+        return result; // RETURN FULL RESULT
       } else {
         log(`>>> AUTOMATION FLOW FAILED: ${result.message}`, 'error');
         const nextRound = (testCase.round || 1) + 1;
@@ -297,7 +297,7 @@ export default function App() {
           await TestCaseService.save(failedData, false, user);
         }
         if (!isBulk) setExecutingId(null);
-        return false;
+        return result; // RETURN FULL RESULT
       }
     } catch (error: any) {
       log(`CRITICAL ERROR: ${error.message}`, 'error');
@@ -310,7 +310,7 @@ export default function App() {
         log(`Suggestion: Please check if the automation server is running on port 3002 (npm start in /automation-server)`, 'error');
       }
       if (!isBulk) setExecutingId(null);
-      return false;
+      return { status: 'failed', message: error.message }; // RETURN ERROR RESULT
     }
   };
 

@@ -3,7 +3,7 @@ import cors from 'cors';
 import { chromium } from 'playwright';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';
-import { getFirestore, collection, addDoc, getDocs, getDoc, doc, query, where, Timestamp, deleteDoc } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, getDocs, getDoc, doc, updateDoc, query, where, Timestamp, deleteDoc } from 'firebase/firestore';
 
 const app = express();
 const PORT = 3002;
@@ -143,6 +143,35 @@ app.delete('/automation/:id', async (req, res) => {
     }
 });
 
+ 
+
+app.put('/automation/:id', async (req, res) => {
+    const { id } = req.params;
+    const { steps, scenarioName } = req.body;
+    console.log(`[Update] Request to update script ID: ${id}`);
+    
+    // Validate steps structure safely
+    if (steps && !Array.isArray(steps)) return res.status(400).json({ error: 'Steps must be an array' });
+
+    try {
+        await ensureAuth();
+        const docRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'automationLibrary', id);
+        
+        // Update fields
+        const updateData = { updatedAt: Date.now() };
+        if (steps) updateData.steps = steps;
+        if (scenarioName) updateData.scenarioName = scenarioName;
+
+        await updateDoc(docRef, updateData);
+        
+        console.log(`[Update] SUCCESS: ${id} updated.`);
+        res.json({ status: 'success' });
+    } catch (error) {
+        console.error('[Update] FAILED:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // 3. รัน Automation
 app.post('/run', async (req, res) => {
     const { steps } = req.body;
@@ -187,9 +216,26 @@ app.post('/run', async (req, res) => {
                     if (currentUrl.includes(step.value)) {
                         console.log('[Assert] URL Match (Instant)');
                     } else {
-                        // Wait if not immediately matching (Reduced to 20s)
-                        await page.waitForURL(url => url.href.includes(step.value), { timeout: 20000 });
-                        console.log('[Assert] URL Match (After Wait)');
+                        try {
+                            // Reduced timeout to 5 seconds
+                            await page.waitForURL(url => url.href.includes(step.value), { timeout: 5000 });
+                            console.log('[Assert] URL Match (After Wait)');
+                        } catch (waitErr) {
+                             throw new Error(`หมดเวลาในการรอ URL (Timeout 5s). คาดหวัง: "${step.value}" แต่พบ: "${page.url()}"`);
+                        }
+                    }
+                } else if (step.type === 'ASSERT_TEXT') {
+                    console.log(`[Assert] Waiting for text: "${step.value}"`);
+                    try {
+                        const bodySelector = 'body';
+                        await page.waitForFunction(
+                            (expectedText) => document.body.innerText.includes(expectedText),
+                            step.value,
+                            { timeout: 5000 } // Reduced timeout to 5 seconds
+                        );
+                        console.log('[Assert] Text Found!');
+                    } catch (e) {
+                         throw new Error(`ไม่พบข้อความ: "${step.value}" บนหน้าจอ (Timeout 5s)`);
                     }
                 } else if (step.type === 'ASSERT_VISIBLE') {
                     const selector = step.xpath ? `xpath=${step.xpath}` : step.id ? `#${step.id}` : null;

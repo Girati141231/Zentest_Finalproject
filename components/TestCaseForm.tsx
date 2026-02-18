@@ -11,7 +11,7 @@ interface TestCaseFormProps {
   modules: Module[];
   editingCase: TestCase | null;
   onSave: (data: Partial<TestCase>, isNew: boolean) => Promise<void>;
-  onRun?: (testCase: TestCase) => Promise<boolean>;
+  onRun?: (testCase: TestCase) => Promise<any>;
   onAlert?: (message: string, type: 'info' | 'success' | 'error') => void;
 }
 
@@ -44,6 +44,8 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
   const [originalJson, setOriginalJson] = useState('');
   const [copied, setCopied] = useState(false);
   const [stagedScript, setStagedScript] = useState<any | null>(null);
+  // NEW: Track which library script is being edited
+  const [editingLibraryId, setEditingLibraryId] = useState<string | null>(null);
 
   useEffect(() => {
     if (editingCase) {
@@ -139,18 +141,65 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
   const applySmartAssertions = (steps: any[], name: string) => {
     const finalSteps = [...(steps || [])];
     const scenarioName = name || 'Scenario';
-    const isLogin = scenarioName.toLowerCase().includes('login') ||
+    const lowerName = scenarioName.toLowerCase();
+    const isLogin = lowerName.includes('login') ||
       finalSteps.some((s: any) => s.name === 'password' || s.placeholder?.toLowerCase().includes('password'));
+
+    // Detect if this is a "Negative Test" (Expect failure)
+    const isNegativeTest = lowerName.includes('fail') || lowerName.includes('error') || lowerName.includes('invalid') || lowerName.includes('ผิด') || lowerName.includes('ไม่ถูกต้อง');
+
+    // FIX: If Negative Test, remove any existing ASSERT_URL at the end because it's likely a false positive from the Recorder
+    if (isNegativeTest) {
+      const lastStep = finalSteps[finalSteps.length - 1];
+      if (lastStep && lastStep.type === 'ASSERT_URL') {
+        finalSteps.pop(); // Remove the misleading URL check
+      }
+    }
+
     const hasAssertion = finalSteps.some((s: any) => s.type?.startsWith('ASSERT_'));
 
-    if (isLogin && !hasAssertion && finalSteps.length > 0) {
-      const lastUrl = finalSteps.find((s: any) => s.url)?.url;
-      const dashboardUrl = lastUrl ? new URL(lastUrl).origin + '/dashboard' : 'https://flower-for-you-admin.vercel.app/dashboard';
-      finalSteps.push({
-        type: 'ASSERT_URL',
-        value: dashboardUrl,
-        note: 'Auto-injected validation'
-      });
+    if (isLogin && finalSteps.length > 0) {
+      if (isNegativeTest) {
+        if (!hasAssertion) { // Only inject if missing
+          finalSteps.push({
+            type: 'ASSERT_TEXT',
+            value: 'Username and password do not match',
+            note: 'Auto-injected failure validation'
+          });
+        }
+      } else {
+        // Positive Case handling
+        if (!hasAssertion) {
+          const lastUrl = finalSteps.find((s: any) => s.url)?.url;
+          const newUrl = (lastUrl && lastUrl.includes('saucedemo'))
+            ? 'https://www.saucedemo.com/inventory.html'
+            : (lastUrl ? new URL(lastUrl).origin + '/dashboard' : 'https://flower-for-you-admin.vercel.app/dashboard');
+
+          finalSteps.push({
+            type: 'ASSERT_URL',
+            value: newUrl,
+            note: 'Auto-injected validation'
+          });
+        } else {
+          // Smart Upgrade: Scan ALL steps
+          finalSteps.forEach((step: any) => {
+            if (step.type === 'ASSERT_URL' && typeof step.value === 'string') {
+              const val = step.value.trim();
+              // Upgrade weak sauce demo assertion (Aggressive Check)
+              // If it's saucedemo but NOT inventory page -> Force it to inventory
+              if (val.includes('saucedemo.com') && !val.includes('inventory.html')) {
+                step.value = 'https://www.saucedemo.com/inventory.html';
+                step.note = 'Smart Upgrade: Enforcing Inventory Check';
+              }
+              // Upgrade weak admin assertion
+              else if (val === 'https://flower-for-you-admin.vercel.app/' || val === 'https://flower-for-you-admin.vercel.app') {
+                step.value = 'https://flower-for-you-admin.vercel.app/dashboard';
+                step.note = 'Upgraded weak assertion to specific path';
+              }
+            }
+          });
+        }
+      }
     }
     return finalSteps;
   };
@@ -188,21 +237,58 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
     setIsBrowsingLibrary(false);
   };
 
+  // NEW: Track which library script is being edited and its original name
+  const [editingLibraryName, setEditingLibraryName] = useState<string | null>(null);
+
   const handleEditScript = (auto: any, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    // NEW: Capture ID and Name if editing a library item
+    if (auto && auto.id) {
+      setEditingLibraryId(auto.id);
+      setEditingLibraryName(auto.scenarioName); // Keep original name!
+    } else {
+      setEditingLibraryId(null);
+      setEditingLibraryName(null);
+    }
+
     const sourceSteps = auto?.steps || form.automationSteps || [];
     const injected = applySmartAssertions(sourceSteps, auto?.scenarioName || form.title || '');
     const jsonString = JSON.stringify(injected, null, 2);
     setRawJson(jsonString);
-    setOriginalJson(jsonString); // Store original to compare
+    setOriginalJson(jsonString);
     setIsEditingJson(true);
   };
 
-  const handleSaveJson = () => {
+  const handleSaveJson = async () => {
     try {
       const parsed = JSON.parse(rawJson);
-      const injected = applySmartAssertions(parsed, form.title || '');
-      const { steps: readable, expected } = generateSmartDocumentation(injected, form.title || 'Scenario');
+      // Use original name if available, otherwise fallback to form title
+      const targetName = editingLibraryName || form.title || 'Scenario';
+
+      const injected = applySmartAssertions(parsed, targetName);
+      const { steps: readable, expected } = generateSmartDocumentation(injected, targetName);
+
+      // NEW: If editing a library script, update it on the server!
+      if (editingLibraryId) {
+        try {
+          const response = await fetch(`http://localhost:3002/automation/${editingLibraryId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            // Send back the ORIGINAL name (or updated logic if we allow renaming later)
+            body: JSON.stringify({ steps: injected, scenarioName: targetName })
+          });
+
+          if (response.ok) {
+            onAlert?.("Library Script Updated Successfully!", 'success');
+            fetchLibrary(); // Refresh the list
+          } else {
+            console.error("Failed to update library script");
+            onAlert?.("Failed to update script on server (Local update only).", 'error');
+          }
+        } catch (serverErr) {
+          console.error("Network error updating script", serverErr);
+        }
+      }
 
       setForm(prev => ({
         ...prev,
@@ -212,7 +298,8 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
       }));
 
       setIsEditingJson(false);
-      onAlert?.("Script modifications applied and documented.", 'success');
+      setEditingLibraryId(null); // Clear editing state
+      if (!editingLibraryId) onAlert?.("Script modifications applied (Local).", 'success');
     } catch (e) {
       onAlert?.("Invalid JSON format. Please verify step syntax.", 'error');
     }
@@ -339,19 +426,21 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
     if (onRun) {
       setIsExecuting(true);
       try {
-        let currentSteps = form.automationSteps || [];
-
+        // ALWAYS apply smart assertions before running to ensure upgrades happen
+        let sourceSteps = form.automationSteps || [];
         if (isEditingJson) {
           try {
-            const parsed = JSON.parse(rawJson);
-            currentSteps = applySmartAssertions(parsed, form.title || '');
-            setForm(prev => ({ ...prev, automationSteps: currentSteps }));
-            setRawJson(JSON.stringify(currentSteps, null, 2));
+            sourceSteps = JSON.parse(rawJson);
           } catch (e) {
             onAlert?.("Run Aborted: JSON Syntax Error in editor window.", 'error');
             return;
           }
         }
+
+        const currentSteps = applySmartAssertions(sourceSteps, form.title || '');
+
+        // Sync back to form state so the UI reflects the upgrade
+        setForm(prev => ({ ...prev, automationSteps: currentSteps }));
 
         const currentCase = {
           ...(editingCase || {}),
@@ -360,10 +449,10 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
           id: editingCase?.id || `TEMP-${Date.now()}`
         } as TestCase;
 
-        const result = await onRun(currentCase);
+        const runResult = await onRun(currentCase);
         const nextRound = (form.round || 1) + 1;
 
-        if (result) {
+        if (runResult && (runResult === true || runResult.status === 'success')) {
           const hasAssertion = currentSteps.some((s: any) => s.type.startsWith('ASSERT_'));
           if (!hasAssertion) {
             onAlert?.("Notice: Script passed interactions, but no ASSERTIONS were found to verify results.", 'info');
@@ -376,6 +465,8 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
             round: nextRound,
             automationSteps: currentSteps, // Sync the latest steps
             status: 'Passed' as Status,
+            screenshots: runResult.screenshots || [], // CAPTURE SCREENSHOTS HERE
+            actualResult: runResult.message || 'ระบบทำงานได้ถูกต้องตามขั้นตอนที่กำหนด',
             steps: (!form.steps || form.steps.length <= 1 || form.hasAutomation) ? steps : form.steps,
             priority: (form.priority === 'Medium') ? priority : form.priority,
             expected: expected
@@ -384,12 +475,14 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
           setForm(finalData);
           await onSave({ ...finalData, projectId: activeProjectId! }, !editingCase);
           onClose();
-        } else {
+        } else if (runResult && runResult.status === 'failed') {
           const failedData = {
             ...form,
             status: 'Failed' as Status,
             round: nextRound,
             automationSteps: currentSteps,
+            screenshots: runResult.screenshots || [], // CAPTURE SCREENSHOTS HERE
+            actualResult: `เกิดข้อผิดพลาด: ${runResult.message || 'ไม่สามารถดำเนินการตามขั้นตอนได้'}`,
             projectId: activeProjectId!
           };
           setForm(failedData);
