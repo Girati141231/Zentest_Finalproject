@@ -91,8 +91,8 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
               </td>
               <td className="px-4 py-4 align-top">
                 <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-2 text-[9px] font-bold tracking-tight whitespace-nowrap">
-                    <span className="text-blue-400 font-mono">{c.id}</span>
+                  <div className="flex items-center gap-2 text-sm font-bold tracking-tight whitespace-nowrap">
+                    <span className="text-blue-400">{c.id}</span>
                     <span className="w-[1px] h-2 bg-white/10"></span>
                     <span className="text-emerald-500 uppercase">{c.module || 'GENERAL'}</span>
                     <span className="w-[1px] h-2 bg-white/10"></span>
@@ -106,7 +106,7 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
               <td className="px-4 py-4 align-top">
                 <div className="flex flex-col gap-2 group/steps max-w-4xl">
                   <div
-                    className="flex items-center gap-2 text-white/50 text-[11px] group-hover/steps:text-white transition-colors cursor-pointer w-fit"
+                    className="flex items-center gap-2 text-white/50 text-xs group-hover/steps:text-white transition-colors cursor-pointer w-fit"
                     onClick={() => toggleSteps(c.id)}
                   >
                     <ListOrdered size={14} className="text-white/20 group-hover/steps:text-blue-400 transition-colors" />
@@ -162,7 +162,7 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
                             {c.actualResult}
                           </div>
                           {c.status === 'Failed' && (
-                            <div className="mt-1 pl-3 text-[9px] text-red-400/60 font-mono break-all bg-red-500/5 p-1.5 rounded-sm border border-red-500/10">
+                            <div className="mt-1 pl-3 text-[9px] text-red-400/60 break-all bg-red-500/5 p-1.5 rounded-sm border border-red-500/10">
                               DEBUG_LOG: {c.actualResult.includes(':') ? c.actualResult.split(':').pop()?.trim() : 'Unexpected interruption in execution flow.'}
                             </div>
                           )}
@@ -273,10 +273,10 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
                     )}
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-[11px] font-bold text-white/90 leading-tight">
+                    <span className="text-xs font-bold text-white/90 leading-tight">
                       {c.lastUpdatedByName || 'System'}
                     </span>
-                    <span className="text-[9px] text-white/40 font-mono tracking-tight">
+                    <span className="text-[10px] text-white/50 tracking-tight">
                       {c.timestamp ? new Date(c.timestamp).toLocaleString('en-GB', {
                         day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
                       }).replace(',', '') : '-'}

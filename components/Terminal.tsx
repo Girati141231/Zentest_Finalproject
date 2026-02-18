@@ -20,18 +20,18 @@ const Terminal: React.FC<TerminalProps> = ({ isOpen, onClose, logs, executingId 
   }, [logs]);
 
   return (
-    <Modal 
-      isOpen={isOpen} 
-      onClose={onClose} 
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
       title={executingId === 'bulk' ? "Batch Execution Runtime" : "System Console"}
       maxWidth="max-w-3xl"
     >
-      <div className="bg-[#050505] border border-white/10 rounded-sm p-1 font-mono text-[11px] shadow-inner">
+      <div className="bg-[#050505] border border-white/10 rounded-sm p-1 text-[11px] shadow-inner">
         <div className="flex items-center gap-2 px-3 py-2 border-b border-white/5 bg-white/[0.02] text-white/40 mb-1">
           <TerminalIcon size={12} />
           <span>/bin/automation_runner --verbose</span>
         </div>
-        <div 
+        <div
           ref={scrollRef}
           className="h-80 overflow-y-auto custom-scrollbar p-3 flex flex-col gap-1.5 leading-relaxed"
         >
@@ -39,11 +39,10 @@ const Terminal: React.FC<TerminalProps> = ({ isOpen, onClose, logs, executingId 
             <div className="text-white/20 italic">Ready for input...</div>
           )}
           {logs.map((log, i) => (
-            <div key={i} className={`break-words ${
-              log.type === 'success' ? 'text-emerald-500' : 
-              log.type === 'error' ? 'text-red-500' : 
-              log.type === 'info' ? 'text-blue-400 font-bold' : 'text-white/30'
-            }`}>
+            <div key={i} className={`break-words ${log.type === 'success' ? 'text-emerald-500' :
+                log.type === 'error' ? 'text-red-500' :
+                  log.type === 'info' ? 'text-blue-400 font-bold' : 'text-white/30'
+              }`}>
               <span className="opacity-30 mr-2">$</span>
               {log.msg}
             </div>

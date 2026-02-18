@@ -541,17 +541,25 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
           <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2">
             <div className="grid grid-cols-2 gap-5">
               <div className="space-y-1.5">
-                <label className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Scenario Title</label>
-                <input type="text" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="w-full bg-white/[0.03] border border-white/10 rounded-sm px-3 py-2 outline-none focus:border-white/20 transition-all text-xs text-white" placeholder="Verify user can..." />
+                <label className="text-xs text-white/50 uppercase font-bold tracking-widest">Test Case Title</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={form.title}
+                    onChange={(e) => setForm({ ...form, title: e.target.value })}
+                    className="w-full bg-[#0a0a0a] border border-white/10 rounded-sm pl-10 pr-4 py-2.5 outline-none text-sm text-white focus:border-white/20 transition-all placeholder:text-white/20"
+                    placeholder="e.g. User Login Validation"
+                  />
+                </div>
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Module</label>
+                  <label className="text-xs text-white/50 uppercase font-bold tracking-widest">Module</label>
                   <div className="relative group/select">
                     <select
                       value={form.module}
                       onChange={(e) => setForm({ ...form, module: e.target.value })}
-                      className="w-full bg-[#0a0a0a] border border-white/10 rounded-sm px-3 py-2 outline-none cursor-pointer text-xs text-white appearance-none focus:border-blue-500/50 transition-all pr-8"
+                      className="w-full bg-[#0a0a0a] border border-white/10 rounded-sm px-3 py-2.5 outline-none cursor-pointer text-sm text-white appearance-none focus:border-blue-500/50 transition-all pr-8"
                     >
                       <option value="">Unassigned</option>
                       {modules
@@ -568,16 +576,16 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Round</label>
-                  <input type="number" min="1" value={form.round || 1} onChange={(e) => setForm({ ...form, round: parseInt(e.target.value) })} className="w-full bg-[#0a0a0a] border border-white/10 rounded-sm px-3 py-2 outline-none text-xs text-white focus:border-white/20 font-mono" />
+                  <label className="text-xs text-white/50 uppercase font-bold tracking-widest">Round</label>
+                  <input type="number" min="1" value={form.round || 1} onChange={(e) => setForm({ ...form, round: parseInt(e.target.value) })} className="w-full bg-[#0a0a0a] border border-white/10 rounded-sm px-3 py-2.5 outline-none text-sm text-white focus:border-white/20" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Priority</label>
+                  <label className="text-xs text-white/50 uppercase font-bold tracking-widest">Priority</label>
                   <div className="relative group/select">
                     <select
                       value={form.priority}
                       onChange={(e) => setForm({ ...form, priority: e.target.value as any })}
-                      className="w-full bg-[#0a0a0a] border border-white/10 rounded-sm px-3 py-2 outline-none cursor-pointer text-xs text-white appearance-none focus:border-blue-500/50 transition-all pr-8"
+                      className="w-full bg-[#0a0a0a] border border-white/10 rounded-sm px-3 py-2.5 outline-none cursor-pointer text-sm text-white appearance-none focus:border-blue-500/50 transition-all pr-8"
                     >
                       {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
@@ -593,12 +601,12 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
 
             <div className="grid grid-cols-1">
               <div className="space-y-1.5">
-                <label className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Status</label>
+                <label className="text-xs text-white/50 uppercase font-bold tracking-widest">Status</label>
                 <div className="relative group/select">
                   <select
                     value={form.status}
                     onChange={(e) => setForm({ ...form, status: e.target.value as any })}
-                    className="w-full bg-[#0a0a0a] border border-white/10 rounded-sm px-3 py-2 outline-none cursor-pointer text-xs text-white appearance-none focus:border-blue-500/50 transition-all pr-8"
+                    className="w-full bg-[#0a0a0a] border border-white/10 rounded-sm px-3 py-2.5 outline-none cursor-pointer text-sm text-white appearance-none focus:border-blue-500/50 transition-all pr-8"
                   >
                     {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
@@ -613,14 +621,14 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
 
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <label className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Execution Steps Sequence</label>
+                <label className="text-xs text-white/50 uppercase font-bold tracking-widest">Execution Steps Sequence</label>
                 <button onClick={() => setForm({ ...form, steps: [...(form.steps || []), ''] })} className="text-[10px] font-bold text-blue-500 hover:text-blue-400 transition-colors uppercase tracking-wider">+ Add Node</button>
               </div>
               <div className="space-y-1.5 max-h-48 overflow-y-auto pr-2 custom-scrollbar bg-white/[0.01] p-2 rounded border border-white/5">
                 {form.steps?.map((s, i) => (
                   <div key={i} className="flex gap-2 group">
-                    <span className="w-6 text-white/20 pt-2 text-[10px] text-center font-mono select-none">{String(i + 1).padStart(2, '0')}</span>
-                    <input type="text" value={s} onChange={(e) => updateSteps(i, e.target.value)} className="flex-1 bg-transparent border-b border-white/5 group-hover:border-white/10 px-2 py-1.5 outline-none text-xs transition-all text-white focus:border-blue-500/50 focus:bg-white/[0.02]" placeholder="Step description..." />
+                    <span className="w-6 text-white/20 pt-2 text-[10px] text-center select-none">{String(i + 1).padStart(2, '0')}</span>
+                    <input type="text" value={s} onChange={(e) => updateSteps(i, e.target.value)} className="flex-1 bg-transparent border-b border-white/5 group-hover:border-white/10 px-2 py-1.5 outline-none text-sm transition-all text-white focus:border-blue-500/50 focus:bg-white/[0.02]" placeholder="Step description..." />
                     <button onClick={() => removeStep(i)} className="text-white/5 hover:text-red-500 transition-colors p-1 opacity-0 group-hover:opacity-100"><XCircle size={14} /></button>
                   </div>
                 ))}
@@ -628,20 +636,19 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Expected Success Criteria</label>
+            <div className="space-y-1.5 flex-1 h-full flex flex-col">
+              <label className="text-xs text-white/50 uppercase font-bold tracking-widest">Description / Pre-conditions</label>
               <textarea
-                value={form.expected}
-                onChange={(e) => setForm({ ...form, expected: e.target.value })}
-                className="w-full bg-blue-500/[0.05] border border-blue-500/20 rounded-sm px-3 py-2.5 outline-none text-blue-100 text-xs placeholder-blue-300/30 custom-scrollbar resize-none"
-                rows={3}
-                placeholder="Final result expectations..."
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                className="w-full flex-1 bg-[#0a0a0a] border border-white/10 rounded-sm px-4 py-3 outline-none text-sm text-white focus:border-white/20 transition-all resize-none custom-scrollbar placeholder:text-white/20 leading-relaxed"
+                placeholder="Describe the test case..."
               />
             </div>
 
             {form.actualResult && (
               <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-300">
-                <label className="text-[10px] text-white/30 uppercase font-bold tracking-widest flex items-center gap-2">
+                <label className="text-xs text-white/50 uppercase font-bold tracking-widest flex items-center gap-2">
                   Actual Result
                   <span className={`px-1.5 py-0.5 rounded-[2px] text-[8px] font-black uppercase ${form.status === 'Passed' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>{form.status}</span>
                 </label>
@@ -658,7 +665,7 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
               <div className="bg-blue-500/5 border border-blue-500/10 p-4 rounded-sm flex items-center justify-between">
                 <div className="flex flex-col gap-1">
                   <span className="text-[9px] font-bold text-blue-400 uppercase tracking-widest">Chrome Recorder Context Key</span>
-                  <span className="text-[11px] font-mono text-white/40">{activeProjectId}</span>
+                  <span className="text-[11px] text-white/40">{activeProjectId}</span>
                 </div>
                 <button
                   onClick={handleCopyId}
@@ -763,7 +770,7 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
                       <textarea
                         value={rawJson}
                         onChange={(e) => setRawJson(e.target.value)}
-                        className="absolute inset-0 w-full h-full bg-[#050505] border border-blue-500/20 rounded-lg p-4 text-[10px] font-mono text-blue-300 outline-none focus:border-blue-500/50 transition-all custom-scrollbar resize-none shadow-inner leading-relaxed"
+                        className="absolute inset-0 w-full h-full bg-[#050505] border border-blue-500/20 rounded-lg p-4 text-[10px] text-blue-300 outline-none focus:border-blue-500/50 transition-all custom-scrollbar resize-none shadow-inner leading-relaxed"
                         spellCheck={false}
                       />
                     </div>
@@ -816,7 +823,7 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
                     <tbody className="divide-y divide-white/5">
                       {Array.isArray(form.automationSteps) && form.automationSteps.map((s, i) => (
                         <tr key={i} className="hover:bg-white/[0.01]">
-                          <td className="p-3 text-white/20 text-center font-mono">{i + 1}</td>
+                          <td className="p-3 text-white/20 text-center">{i + 1}</td>
                           <td className="p-3 text-blue-400 font-bold uppercase">{s.type}</td>
                           <td className="p-3 text-white/70">{s.type === 'INPUT' ? `Type: "${s.value}"` : (s.text && s.text !== 'No text' ? s.text : s.tagName)}</td>
                           <td className="p-3 text-right">

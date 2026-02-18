@@ -132,7 +132,7 @@ export const KeyManager: React.FC = () => {
                         <tbody className="divide-y divide-white/[0.03]">
                             {keys.map((k) => (
                                 <tr key={k.key} className="hover:bg-white/[0.02] transition-colors group">
-                                    <td className="p-4 pl-6 font-mono text-white/80 flex items-center gap-3">
+                                    <td className="p-4 pl-6 text-white/80 flex items-center gap-3">
                                         <div className="w-2 h-2 rounded-full bg-white/10 group-hover:bg-white/30 transition-colors"></div>
                                         {k.key}
                                         <button
@@ -169,10 +169,10 @@ export const KeyManager: React.FC = () => {
                                     <td className="p-4">
                                         <div className="flex flex-col">
                                             <span className="text-white/80 text-xs font-medium">{k.usedByName || '-'}</span>
-                                            <span className="text-white/30 text-[9px] font-mono">{k.usedByEmail || k.usedBy}</span>
+                                            <span className="text-white/30 text-[9px]">{k.usedByEmail || k.usedBy}</span>
                                         </div>
                                     </td>
-                                    <td className="p-4 pr-6 text-white/30 text-[10px] text-right font-mono">
+                                    <td className="p-4 pr-6 text-white/30 text-[10px] text-right">
                                         {new Date(k.createdAt).toLocaleDateString()}
                                     </td>
                                 </tr>

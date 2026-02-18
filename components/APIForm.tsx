@@ -80,13 +80,13 @@ const APIForm: React.FC<APIFormProps> = ({
                 <div className="grid grid-cols-[100px_1fr] gap-4">
                     <div className="space-y-1.5">
                         <label className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Method</label>
-                        <select value={form.method} onChange={(e) => setForm({ ...form, method: e.target.value as any })} className="w-full bg-[#0a0a0a] border border-white/10 rounded-sm px-3 py-2 outline-none cursor-pointer text-xs text-white appearance-none focus:border-white/20 font-mono font-bold">
+                        <select value={form.method} onChange={(e) => setForm({ ...form, method: e.target.value as any })} className="w-full bg-[#0a0a0a] border border-white/10 rounded-sm px-3 py-2 outline-none cursor-pointer text-xs text-white appearance-none focus:border-white/20 font-bold">
                             {METHODS.map(m => <option key={m} value={m}>{m}</option>)}
                         </select>
                     </div>
                     <div className="space-y-1.5">
                         <label className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Endpoint URL</label>
-                        <input type="text" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} className="w-full bg-white/[0.03] border border-white/10 rounded-sm px-3 py-2 outline-none focus:border-white/20 transition-all text-xs text-white font-mono" placeholder="https://api.example.com/v1/users" />
+                        <input type="text" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} className="w-full bg-white/[0.03] border border-white/10 rounded-sm px-3 py-2 outline-none focus:border-white/20 transition-all text-xs text-white" placeholder="https://api.example.com/v1/users" />
                     </div>
                 </div>
 
@@ -105,11 +105,11 @@ const APIForm: React.FC<APIFormProps> = ({
                     </div>
                     <div className="space-y-1.5">
                         <label className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Round</label>
-                        <input type="number" min="1" value={form.round || 1} onChange={(e) => setForm({ ...form, round: parseInt(e.target.value) })} className="w-full bg-[#0a0a0a] border border-white/10 rounded-sm px-3 py-2 outline-none text-xs text-white focus:border-white/20 font-mono" />
+                        <input type="number" min="1" value={form.round || 1} onChange={(e) => setForm({ ...form, round: parseInt(e.target.value) })} className="w-full bg-[#0a0a0a] border border-white/10 rounded-sm px-3 py-2 outline-none text-xs text-white focus:border-white/20" />
                     </div>
                     <div className="space-y-1.5">
                         <label className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Expected Status</label>
-                        <input type="number" value={form.expectedStatus} onChange={(e) => setForm({ ...form, expectedStatus: parseInt(e.target.value) })} className="w-full bg-[#0a0a0a] border border-white/10 rounded-sm px-3 py-2 outline-none text-xs text-white focus:border-white/20 font-mono" />
+                        <input type="number" value={form.expectedStatus} onChange={(e) => setForm({ ...form, expectedStatus: parseInt(e.target.value) })} className="w-full bg-[#0a0a0a] border border-white/10 rounded-sm px-3 py-2 outline-none text-xs text-white focus:border-white/20" />
                     </div>
                     <div className="space-y-1.5">
                         <label className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Status</label>
@@ -128,9 +128,9 @@ const APIForm: React.FC<APIFormProps> = ({
                     <div className="space-y-1.5 max-h-32 overflow-y-auto pr-2 custom-scrollbar bg-white/[0.01] p-2 rounded border border-white/5">
                         {form.headers?.map((h, i) => (
                             <div key={i} className="flex gap-2 group">
-                                <input type="text" value={h.key} onChange={(e) => updateHeader(i, 'key', e.target.value)} className="flex-1 bg-transparent border-b border-white/5 px-2 py-1 outline-none text-xs text-white/60 font-mono focus:text-white focus:border-blue-500/50" placeholder="Key" />
+                                <input type="text" value={h.key} onChange={(e) => updateHeader(i, 'key', e.target.value)} className="flex-1 bg-transparent border-b border-white/5 px-2 py-1 outline-none text-xs text-white/60 focus:text-white focus:border-blue-500/50" placeholder="Key" />
                                 <span className="text-white/10">:</span>
-                                <input type="text" value={h.value} onChange={(e) => updateHeader(i, 'value', e.target.value)} className="flex-1 bg-transparent border-b border-white/5 px-2 py-1 outline-none text-xs text-emerald-400/60 font-mono focus:text-emerald-400 focus:border-emerald-500/50" placeholder="Value" />
+                                <input type="text" value={h.value} onChange={(e) => updateHeader(i, 'value', e.target.value)} className="flex-1 bg-transparent border-b border-white/5 px-2 py-1 outline-none text-xs text-emerald-400/60 focus:text-emerald-400 focus:border-emerald-500/50" placeholder="Value" />
                                 <button onClick={() => removeHeader(i)} className="text-white/5 hover:text-red-500 transition-colors p-1 opacity-0 group-hover:opacity-100"><XCircle size={14} /></button>
                             </div>
                         ))}
@@ -145,7 +145,7 @@ const APIForm: React.FC<APIFormProps> = ({
                         <textarea
                             value={form.body}
                             onChange={(e) => setForm({ ...form, body: e.target.value })}
-                            className="flex-1 w-full bg-[#000000] border border-white/10 rounded-sm p-3 font-mono text-[10px] text-white/80 outline-none focus:border-white/20 custom-scrollbar resize-none"
+                            className="flex-1 w-full bg-[#000000] border border-white/10 rounded-sm p-3 text-[10px] text-white/80 outline-none focus:border-white/20 custom-scrollbar resize-none"
                             placeholder="{}"
                         />
                     </div>
@@ -154,7 +154,7 @@ const APIForm: React.FC<APIFormProps> = ({
                         <textarea
                             value={form.expectedBody}
                             onChange={(e) => setForm({ ...form, expectedBody: e.target.value })}
-                            className="flex-1 w-full bg-[#000000] border border-white/10 rounded-sm p-3 font-mono text-[10px] text-emerald-400/80 outline-none focus:border-emerald-500/30 custom-scrollbar resize-none"
+                            className="flex-1 w-full bg-[#000000] border border-white/10 rounded-sm p-3 text-[10px] text-emerald-400/80 outline-none focus:border-emerald-500/30 custom-scrollbar resize-none"
                             placeholder="{ ... }"
                         />
                     </div>

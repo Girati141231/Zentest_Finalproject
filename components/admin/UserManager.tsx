@@ -116,7 +116,7 @@ export const UserManager: React.FC = () => {
                                             </div>
                                             <div>
                                                 <div className="text-white font-bold text-xs">{user.displayName || 'Unknown User'}</div>
-                                                <div className="text-white/40 text-[10px] font-mono">{user.email || user.uid}</div>
+                                                <div className="text-white/40 text-[10px]">{user.email || user.uid}</div>
                                             </div>
                                         </div>
                                     </td>
@@ -131,7 +131,7 @@ export const UserManager: React.FC = () => {
                                             </span>
                                         )}
                                     </td>
-                                    <td className="p-4 text-white/60 text-xs font-mono">
+                                    <td className="p-4 text-white/60 text-xs">
                                         {user.validUntil?.toMillis
                                             ? new Date(user.validUntil.toMillis()).toLocaleDateString()
                                             : '-'}

@@ -19,7 +19,7 @@ const styles: Record<string, string> = {
 
 const Badge: React.FC<BadgeProps> = ({ children, variant = 'default' }) => {
   return (
-    <span className={`px-2 py-0.5 rounded-sm text-[10px] font-mono border uppercase tracking-wider ${styles[variant as string] || styles.default}`}>
+    <span className={`px-2 py-0.5 rounded-sm text-[10px] border uppercase tracking-wider ${styles[variant as string] || styles.default}`}>
       {children}
     </span>
   );

@@ -121,14 +121,14 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
               type="text"
               value={joinCode}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setJoinCode(e.target.value)}
-              className="w-full bg-white/[0.03] border border-white/10 rounded-sm px-4 py-3 outline-none focus:border-white/20 focus:bg-white/[0.05] transition-all text-xs text-white font-mono placeholder:text-white/10"
+              className="w-full bg-white/[0.03] border border-white/10 rounded-sm px-4 py-3 outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 focus:bg-white/[0.05] transition-all text-xs text-white placeholder:text-white/10"
               placeholder="e.g. x8Y7z9..."
             />
             <p className="text-[10px] text-white/30 italic">Obtain this code from the project owner's settings.</p>
           </div>
           <button
             onClick={() => onJoin(joinCode)}
-            className="w-full bg-blue-600 text-white py-2.5 rounded-sm text-[11px] font-bold transition-all hover:bg-blue-500 uppercase tracking-widest hover:shadow-[0_0_15px_rgba(37,99,235,0.3)]"
+            className="w-full bg-blue-600 text-white py-2.5 rounded-sm text-[11px] font-bold transition-all hover:bg-blue-500 uppercase tracking-widest hover:shadow-[0_0_15px_rgba(37,99,235,0.3)] active:scale-[0.98]"
           >
             Authenticate & Join
           </button>
@@ -142,7 +142,7 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
                 type="text"
                 value={form.name}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, name: e.target.value })}
-                className="w-full bg-white/[0.03] border border-white/10 rounded-sm px-3 py-2.5 outline-none focus:border-white/20 transition-all text-xs text-white"
+                className="w-full bg-white/[0.03] border border-white/10 rounded-sm px-3 py-2.5 outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-xs text-white"
                 placeholder="Enter scope name..."
               />
               <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest block mt-4">Profile Image</label>
@@ -175,7 +175,7 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
 
               <button
                 onClick={handleSave}
-                className="w-full mt-4 bg-white text-black py-2.5 rounded-sm text-[11px] font-bold transition-all hover:bg-white/90 uppercase tracking-widest"
+                className="w-full mt-4 bg-white text-black py-2.5 rounded-sm text-[11px] font-bold transition-all hover:bg-white/90 uppercase tracking-widest active:scale-[0.98]"
               >
                 {mode === 'create' ? 'Deploy Scope' : 'Update Registry'}
               </button>
@@ -200,7 +200,7 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
               <div className="pt-6 border-t border-white/5">
                 <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest block mb-2">Share Scope Identifier</label>
                 <div className="flex items-center gap-2 bg-black p-2 rounded-sm border border-white/10 group hover:border-white/20 transition-colors">
-                  <span className="text-[10px] font-mono text-white/60 truncate flex-1 px-2">{activeProject.id}</span>
+                  <span className="text-[10px] text-white/60 truncate flex-1 px-2">{activeProject.id}</span>
                   <button onClick={handleCopyId} className="p-1.5 hover:text-emerald-400 transition-colors text-white/40">
                     {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
                   </button>
@@ -280,7 +280,7 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
                           )}
                           <div className="flex flex-col">
                             <span className="text-[11px] font-bold text-white/80">{member.displayName} {isMe && <span className="text-white/30 text-[9px]">(You)</span>}</span>
-                            <span className="text-[9px] text-white/40 font-mono">{member.email}</span>
+                            <span className="text-[9px] text-white/40">{member.email}</span>
                           </div>
                         </div>
 

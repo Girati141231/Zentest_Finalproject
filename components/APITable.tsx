@@ -54,15 +54,15 @@ const APITable: React.FC<APITableProps> = ({
                                 {cases.length > 0 && selectedIds.size === cases.length ? <CheckSquare size={16} /> : <Square size={16} className="opacity-30" />}
                             </button>
                         </th>
-                        <th className="px-4 py-3 font-bold w-28">ID</th>
-                        <th className="px-4 py-3 font-bold w-20">Method</th>
-                        <th className="px-4 py-3 font-bold">Endpoint / Description</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase tracking-wider">Method</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase tracking-wider w-1/3">Endpoint</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase tracking-wider">ID</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase tracking-wider">Status</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase tracking-wider">Round</th>
                         <th className="px-4 py-3 font-bold w-32">Module</th>
-                        <th className="px-4 py-3 font-bold w-16 text-center">Round</th>
-                        <th className="px-4 py-3 font-bold w-24">Status</th>
                         <th className="px-4 py-3 font-bold w-16 text-center">Run</th>
                         <th className="px-4 py-3 font-bold w-36 border-l border-white/5">Update By</th>
-                        <th className="px-4 py-3 w-40 text-center">Actions</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-white/50 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
@@ -73,27 +73,18 @@ const APITable: React.FC<APITableProps> = ({
                                     {selectedIds.has(c.id) ? <CheckSquare size={16} /> : <Square size={16} />}
                                 </button>
                             </td>
-                            <td className="px-4 py-4 text-white/30 font-mono text-[10px] font-bold">{c.id}</td>
-                            <td className="px-4 py-4">
-                                <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${METHOD_COLORS[c.method] || 'text-white/50'}`}>
+                            <td className="px-4 py-4 text-xs">
+                                <span className={`font-bold ${c.method === 'GET' ? 'text-blue-400' : c.method === 'POST' ? 'text-emerald-400' : c.method === 'DELETE' ? 'text-red-400' : 'text-amber-400'}`}>
                                     {c.method}
                                 </span>
                             </td>
-                            <td className="px-4 py-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="text-white text-sm font-medium truncate max-w-[200px] group-hover:text-blue-400 transition-colors flex items-center gap-2">
-                                        <Globe size={12} className="text-white/20" /> {c.url}
-                                    </div>
-                                    {c.title && (
-                                        <div className="text-[10px] text-white/40 truncate max-w-[200px] border-l border-white/10 pl-3">
-                                            {c.title}
-                                        </div>
-                                    )}
-                                </div>
+                            <td className="px-4 py-4 text-xs text-white/80 font-medium truncate max-w-[200px]" title={c.url}>
+                                {c.url}
                             </td>
-                            <td className="px-4 py-3"><Badge>{c.module || 'Unassigned'}</Badge></td>
-                            <td className="px-4 py-3 text-center text-xs font-mono text-white/50">{c.round || 1}</td>
+                            <td className="px-4 py-4 text-white/50 text-xs font-bold">{c.id}</td>
                             <td className="px-4 py-3"><Badge variant={c.status}>{c.status}</Badge></td>
+                            <td className="px-4 py-3 text-center text-xs text-white/50">{c.round || 1}</td>
+                            <td className="px-4 py-3"><Badge>{c.module || 'Unassigned'}</Badge></td>
                             <td className="px-4 py-3 text-center">
                                 {executingId === c.id || (executingId === 'bulk' && selectedIds.has(c.id)) ? (
                                     <RefreshCcw size={14} className="animate-spin text-blue-500 m-auto" />
@@ -203,8 +194,8 @@ const APITable: React.FC<APITableProps> = ({
                         </tr>
                     )}
                 </tbody>
-            </table>
-        </div>
+            </table >
+        </div >
     );
 };
 

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
-  Play, Search, LogIn, CheckSquare, Eye, AlertCircle, Download, Activity, Globe, Trash2, LayoutDashboard
+  Play, Search, LogIn, CheckSquare, Eye, AlertCircle, Download, Activity, Globe, Trash2, LayoutDashboard, ChevronRight
 } from 'lucide-react';
 import {
   onAuthStateChanged,
@@ -88,6 +88,8 @@ export default function App() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<'functional' | 'api' | 'dashboard'>('dashboard');
 
+  const [isBooting, setIsBooting] = useState(false); // Transition state
+
   // Modals
   const [isCaseModalOpen, setIsCaseModalOpen] = useState(false);
   const [isAPIModalOpen, setIsAPIModalOpen] = useState(false);
@@ -150,11 +152,18 @@ export default function App() {
   }, [user, isInStudio, isAdminDashboard]);
 
   const handleAppLogout = async () => {
-    await handleLogout();
-    setIsInStudio(false);
-    setIsAdminPortal(false);
-    setIsAdminDashboard(false);
-    setActiveProjectId(null);
+    setConfirmConfig({
+      title: "Sign Out",
+      message: "Are you sure you want to sign out?",
+      onConfirm: async () => {
+        await handleLogout();
+        setIsInStudio(false);
+        setIsAdminPortal(false);
+        setIsAdminDashboard(false);
+        setActiveProjectId(null);
+        setConfirmConfig(null);
+      }
+    });
   };
 
   // --- Actions ---
@@ -410,26 +419,62 @@ export default function App() {
     );
   }
 
+  if (isBooting) {
+    return (
+      <div className="fixed inset-0 bg-[#050505] flex flex-col items-center justify-center z-50">
+        <div className="relative w-20 h-20 mb-8 flex items-center justify-center">
+          <div className="absolute inset-0 bg-indigo-500/20 blur-xl rounded-full animate-pulse"></div>
+          <img src="/Zenlogo.png" alt="Logo" className="w-16 h-16 object-contain relative z-10 animate-pulse" />
+        </div>
+        <div className="w-48 h-[2px] bg-white/10 rounded-full overflow-hidden">
+          <div className="h-full bg-indigo-500 animate-[loading_1.5s_ease-in-out_forwards] w-full origin-left" />
+        </div>
+        <p className="mt-6 text-white/40 text-[10px] tracking-[0.2em] animate-pulse">INITIALIZING WORKSPACE...</p>
+        <style>{`
+          @keyframes loading {
+            0% { transform: scaleX(0); }
+            100% { transform: scaleX(1); }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
   if (!user || !isInStudio) {
     return (
-      <LandingPage
-        user={user}
-        onLogin={handleLogin}
-        onDemo={handleDemoLogin}
-        // If user is admin, "Enter Studio" from Landing Page should probably go to Portal too?
-        // Or just let them choose. Let's keep specific logic in handleLogin/Effect.
-        // But for manual click:
-        onEnterStudio={() => {
-          if (user?.email === ADMIN_EMAIL) setIsAdminPortal(true);
-          else setIsInStudio(true);
-        }}
-        onLogout={handleAppLogout}
-      />
+      <>
+        <LandingPage
+          user={user}
+          onLogin={handleLogin}
+          onDemo={handleDemoLogin}
+          onEnterStudio={() => {
+            if (user?.email === ADMIN_EMAIL) {
+              setIsAdminPortal(true);
+            } else {
+              setIsBooting(true);
+              setTimeout(() => {
+                setIsInStudio(true);
+                setIsBooting(false);
+              }, 1500);
+            }
+          }}
+          onLogout={handleAppLogout}
+        />
+        {confirmConfig && (
+          <ConfirmModal
+            isOpen={true}
+            onClose={() => setConfirmConfig(null)}
+            onConfirm={confirmConfig.onConfirm}
+            title={confirmConfig.title}
+            message={confirmConfig.message}
+          />
+        )}
+      </>
     );
   }
 
   return (
-    <div className="flex h-screen bg-[#050505] text-white overflow-hidden font-sans selection:bg-white/20">
+    <div className="flex h-screen bg-[#050505] text-white overflow-hidden font-sans selection:bg-white/20 animate-in fade-in zoom-in-95 duration-700">
 
       <Sidebar
         user={user}
@@ -458,9 +503,13 @@ export default function App() {
 
         <header className="h-14 border-b border-white/10 bg-[#050505]/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-20">
           <div className="flex items-center gap-4">
-            <h2 className="font-bold text-sm tracking-wide flex items-center gap-2">
-              {activeProject?.name || 'SELECT A PROJECT'}
-            </h2>
+            <div className="flex items-center gap-2 text-sm select-none">
+              <span className="text-white/40 font-medium hidden sm:inline-block">Projects</span>
+              <ChevronRight size={14} className="text-white/20 hidden sm:inline-block" />
+              <h2 className="font-bold text-white tracking-wide">
+                {activeProject?.name || 'SELECT A PROJECT'}
+              </h2>
+            </div>
             {user.uid === 'demo-user' && <span className="bg-amber-500/20 text-amber-500 text-[9px] px-2 py-0.5 rounded-full border border-amber-500/30 font-bold uppercase tracking-widest">Preview Mode</span>}
           </div>
           <div className="flex items-center gap-3">
