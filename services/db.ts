@@ -189,6 +189,37 @@ export const ProjectService = {
     }
   },
 
+  requestAccess: async (projectId: string, uid: string) => {
+    if (!isConfigured) return;
+    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projects', projectId, 'members', uid), {
+      accessRequested: true
+    });
+  },
+
+  resolveAccessRequest: async (projectId: string, uid: string, approved: boolean) => {
+    if (!isConfigured) return;
+    const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'projects', projectId, 'members', uid);
+
+    if (approved) {
+      // Approve: Update role to editor and remove request flag
+      await updateDoc(memberRef, {
+        role: 'editor',
+        accessRequested: false // or use deleteField() if prefer cleaner db
+      });
+      // Also update user's private copy if possible
+      try {
+        await updateDoc(doc(db, 'artifacts', appId, 'users', uid, 'myProjects', projectId), { role: 'editor' });
+      } catch (e) {
+        console.warn("Could not update user's private project role copy (resolve):", e);
+      }
+    } else {
+      // Deny: Just remove the request flag
+      await updateDoc(memberRef, {
+        accessRequested: false
+      });
+    }
+  },
+
   update: async (id: string, data: Partial<Project>) => {
     if (!isConfigured) { await delay(300); return; }
     const ref = doc(db, PUBLIC_DATA_PATH[0], PUBLIC_DATA_PATH[1], PUBLIC_DATA_PATH[2], PUBLIC_DATA_PATH[3], 'projects', id);

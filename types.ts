@@ -22,6 +22,7 @@ export interface ProjectMember {
   joinedAt: number;
   lastSeen?: number;
   isOnline?: boolean;
+  accessRequested?: boolean;
 }
 
 export interface Module {

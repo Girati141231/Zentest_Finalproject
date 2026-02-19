@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Check, Copy, Trash2, LogOut, Upload } from 'lucide-react';
+import { Check, Copy, Trash2, LogOut, Upload, X } from 'lucide-react';
 import Modal from './ui/Modal';
 import ConfirmModal from './ui/ConfirmModal';
 import AlertModal from './ui/AlertModal';
@@ -285,6 +285,25 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
                         </div>
 
                         <div className="flex items-center gap-2">
+                          {member.accessRequested && amIOwner && (
+                            <div className="flex items-center gap-1 mr-2 bg-indigo-500/10 border border-indigo-500/20 rounded px-1.5 py-0.5">
+                              <span className="text-[9px] text-indigo-400 font-bold uppercase tracking-wider">Requested</span>
+                              <button
+                                onClick={() => ProjectService.resolveAccessRequest(activeProject.id, member.uid, true)}
+                                className="ml-1 p-0.5 text-indigo-400 hover:text-green-400 transition-colors"
+                                title="Approve"
+                              >
+                                <Check size={12} />
+                              </button>
+                              <button
+                                onClick={() => ProjectService.resolveAccessRequest(activeProject.id, member.uid, false)}
+                                className="p-0.5 text-indigo-400 hover:text-red-400 transition-colors"
+                                title="Deny"
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
+                          )}
                           {isMemberOwner ? (
                             <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 text-[9px] font-bold uppercase tracking-wider border border-amber-500/20">Owner</span>
                           ) : (

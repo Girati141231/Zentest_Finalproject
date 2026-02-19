@@ -183,8 +183,8 @@ export default function App() {
     };
     updatePresence();
 
-    // 3. Heartbeat every 60s
-    const interval = setInterval(updatePresence, 60000);
+    // 3. Heartbeat every 20s (Faster updates)
+    const interval = setInterval(updatePresence, 20000);
 
     return () => {
       unsubscribe();
@@ -659,11 +659,28 @@ export default function App() {
               </h2>
             </div>
             {user.uid === 'demo-user' && <span className="bg-amber-500/20 text-amber-500 text-[9px] px-2 py-0.5 rounded-full border border-amber-500/30 font-bold uppercase tracking-widest">Preview Mode</span>}
+            {activeProject?.role === 'viewer' && user.uid !== 'demo-user' && (
+              <button
+                onClick={async () => {
+                  const me = projectMembers.find(m => m.uid === user.uid);
+                  if (me?.accessRequested) return;
+                  await ProjectService.requestAccess(activeProjectId!, user.uid);
+                  // Optimistic update or wait for snapshot
+                }}
+                disabled={projectMembers.find(m => m.uid === user.uid)?.accessRequested}
+                className={`text-[9px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-widest transition-all ${projectMembers.find(m => m.uid === user.uid)?.accessRequested
+                    ? 'bg-zinc-800 text-zinc-500 border-zinc-700 cursor-not-allowed'
+                    : 'bg-blue-600/20 text-blue-400 border-blue-500/30 hover:bg-blue-600/30 hover:border-blue-500/50'
+                  }`}
+              >
+                {projectMembers.find(m => m.uid === user.uid)?.accessRequested ? 'Request Sent' : 'Request Edit Access'}
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-3">
             {/* Presence Pile */}
             <div className="flex -space-x-2 mr-4 border-r border-white/10 pr-4">
-              {projectMembers.filter(m => m.lastSeen && Date.now() - m.lastSeen < 120000).slice(0, 5).map((member) => (
+              {projectMembers.filter(m => m.lastSeen && Date.now() - m.lastSeen < 45000).slice(0, 5).map((member) => (
                 <div key={member.uid} className="relative group cursor-pointer">
                   <div className="w-8 h-8 rounded-full border-2 border-[#050505] overflow-hidden bg-zinc-800">
                     {member.photoURL ? (
@@ -680,14 +697,14 @@ export default function App() {
                   <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-black border border-white/10 px-2 py-1 rounded text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
                     <span className="font-bold text-white">{member.displayName}</span>
                     <span className="text-white/50 ml-1">
-                      {Math.floor((Date.now() - (member.lastSeen || 0)) / 60000)}m ago
+                      {(Date.now() - (member.lastSeen || 0)) < 60000 ? 'Just now' : `${Math.floor((Date.now() - (member.lastSeen || 0)) / 60000)}m ago`}
                     </span>
                   </div>
                 </div>
               ))}
-              {projectMembers.filter(m => m.lastSeen && Date.now() - m.lastSeen < 120000).length > 5 && (
+              {projectMembers.filter(m => m.lastSeen && Date.now() - m.lastSeen < 45000).length > 5 && (
                 <div className="w-8 h-8 rounded-full border-2 border-[#050505] bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white/50">
-                  +{projectMembers.filter(m => m.lastSeen && Date.now() - m.lastSeen < 120000).length - 5}
+                  +{projectMembers.filter(m => m.lastSeen && Date.now() - m.lastSeen < 45000).length - 5}
                 </div>
               )}
             </div>
@@ -782,7 +799,7 @@ export default function App() {
               </button>
             )}
           </div>
-        </header>
+        </header >
 
         {viewMode !== 'dashboard' && (
           <div className="h-12 border-b border-white/10 flex items-center px-6 gap-4 bg-[#050505]">
@@ -865,7 +882,8 @@ export default function App() {
               )}
             </div>
           </div>
-        )}
+        )
+        }
 
         <div className="flex-1 overflow-auto p-6 scroll-smooth custom-scrollbar">
           {viewMode === 'dashboard' ? (
@@ -953,10 +971,10 @@ export default function App() {
             />
           )}
         </div>
-      </main>
+      </main >
 
       {/* MODALS */}
-      <ProjectModals
+      < ProjectModals
         mode={projectModalMode}
         onClose={() => setProjectModalMode(null)}
         activeProject={activeProject}
@@ -996,15 +1014,17 @@ export default function App() {
         }}
       />
 
-      {confirmConfig && (
-        <ConfirmModal
-          isOpen={true}
-          onClose={() => setConfirmConfig(null)}
-          onConfirm={confirmConfig.onConfirm}
-          title={confirmConfig.title}
-          message={confirmConfig.message}
-        />
-      )}
+      {
+        confirmConfig && (
+          <ConfirmModal
+            isOpen={true}
+            onClose={() => setConfirmConfig(null)}
+            onConfirm={confirmConfig.onConfirm}
+            title={confirmConfig.title}
+            message={confirmConfig.message}
+          />
+        )
+      }
 
       <Terminal
         isOpen={isTerminalOpen}
@@ -1031,13 +1051,15 @@ export default function App() {
         type={alertConfig?.type}
       />
 
-      {isLicenseModalOpen && (
-        <LicenseRedemption
-          user={user}
-          userDoc={userDoc}
-          onClose={() => setIsLicenseModalOpen(false)}
-        />
-      )}
+      {
+        isLicenseModalOpen && (
+          <LicenseRedemption
+            user={user}
+            userDoc={userDoc}
+            onClose={() => setIsLicenseModalOpen(false)}
+          />
+        )
+      }
 
       <QuotaModal
         isOpen={!!quotaMessage}
