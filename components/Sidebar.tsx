@@ -18,6 +18,7 @@ interface SidebarProps {
   onBackToHome: () => void; // New prop
   isExpanded: boolean;
   onToggleExpand: () => void;
+  pendingRequestCount?: number;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -33,7 +34,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onLogout,
   onBackToHome, // Destructure
   isExpanded,
-  onToggleExpand
+  onToggleExpand,
+  pendingRequestCount
 }) => {
   const [imageError, setImageError] = useState(false);
 
@@ -125,10 +127,27 @@ const Sidebar: React.FC<SidebarProps> = ({
         <button
           disabled={!activeProjectId}
           onClick={onSettings}
-          className={`flex items-center text-white/40 hover:text-white transition-colors disabled:opacity-20 rounded-sm py-1 ${isExpanded ? 'gap-3 px-2' : 'justify-center'}`}
+          className={`relative flex items-center text-white/40 hover:text-white transition-colors disabled:opacity-20 rounded-sm py-1 ${isExpanded ? 'gap-3 px-2' : 'justify-center'}`}
         >
-          <Settings size={18} className="flex-shrink-0" />
-          {isExpanded && <span className="font-medium text-sm animate-in fade-in duration-200 whitespace-nowrap overflow-hidden">Config</span>}
+          <div className="relative">
+            <Settings size={18} className="flex-shrink-0" />
+            {pendingRequestCount !== undefined && pendingRequestCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 text-[8px] font-bold text-white items-center justify-center">
+                  {isExpanded ? '' : ''}
+                </span>
+              </span>
+            )}
+          </div>
+          {isExpanded && (
+            <div className="flex items-center justify-between flex-1">
+              <span className="font-medium text-sm animate-in fade-in duration-200 whitespace-nowrap overflow-hidden">Config</span>
+              {pendingRequestCount !== undefined && pendingRequestCount > 0 && (
+                <span className="bg-red-500 text-white text-[9px] font-bold px-1.5 rounded-full">{pendingRequestCount}</span>
+              )}
+            </div>
+          )}
         </button>
         <button
           onClick={onLogout}
