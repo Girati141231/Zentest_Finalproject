@@ -43,7 +43,7 @@ const ensureAuth = async () => {
 app.post('/projects', async (req, res) => {
     const { apiKey } = req.body; // apiKey คือ ID ของโปรเจกต์
     console.log(`[Extension] Requesting Project ID: ${apiKey}`);
-    
+
     if (!apiKey) return res.status(400).json({ error: 'Project ID is required' });
 
     try {
@@ -54,7 +54,7 @@ app.post('/projects', async (req, res) => {
 
         if (docSnap.exists()) {
             console.log(`[Extension] Project Found: ${docSnap.data().name}`);
-            res.json({ 
+            res.json({
                 projects: [{
                     id: docSnap.id,
                     name: docSnap.data().name || 'Unnamed Project'
@@ -74,7 +74,7 @@ app.post('/projects', async (req, res) => {
 app.post('/save-automation', async (req, res) => {
     const { steps, apiKey, projectId, folderName, scenarioName } = req.body;
     console.log(`[Sync] Saving script: ${scenarioName} to Folder: ${folderName}`);
-    
+
     if (!steps || !projectId || !folderName || !scenarioName) {
         return res.status(400).json({ error: 'Missing required fields' });
     }
@@ -92,7 +92,7 @@ app.post('/save-automation', async (req, res) => {
             createdAt: Date.now(),
             timestamp: Timestamp.now()
         });
-        
+
         console.log(`[Sync] SUCCESS! Saved with ID: ${docRef.id}`);
         res.json({ status: 'success', id: docRef.id });
     } catch (error) {
@@ -105,7 +105,7 @@ app.post('/save-automation', async (req, res) => {
 app.get('/list-automation/:projectId', async (req, res) => {
     const { projectId } = req.params;
     console.log(`[App] Fetching automation library for Project: ${projectId}`);
-    
+
     try {
         await ensureAuth();
         const libRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'automationLibrary');
@@ -123,47 +123,47 @@ app.get('/list-automation/:projectId', async (req, res) => {
 app.delete('/automation/:id', async (req, res) => {
     const { id } = req.params;
     console.log(`[Delete] Request to remove script ID: ${id}`);
-    
+
     try {
         await ensureAuth();
         const docPath = `artifacts/${APP_ID}/public/data/automationLibrary/${id}`;
         console.log(`[Delete] Targeting path: ${docPath}`);
-        
+
         const docRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'automationLibrary', id);
         await deleteDoc(docRef);
-        
+
         console.log(`[Delete] SUCCESS: ${id} removed.`);
         res.json({ status: 'success' });
     } catch (error) {
         console.error('[Delete] FAILED:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             error: error.message,
             code: error.code || 'unknown'
         });
     }
 });
 
- 
+
 
 app.put('/automation/:id', async (req, res) => {
     const { id } = req.params;
     const { steps, scenarioName } = req.body;
     console.log(`[Update] Request to update script ID: ${id}`);
-    
+
     // Validate steps structure safely
     if (steps && !Array.isArray(steps)) return res.status(400).json({ error: 'Steps must be an array' });
 
     try {
         await ensureAuth();
         const docRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'automationLibrary', id);
-        
+
         // Update fields
         const updateData = { updatedAt: Date.now() };
         if (steps) updateData.steps = steps;
         if (scenarioName) updateData.scenarioName = scenarioName;
 
         await updateDoc(docRef, updateData);
-        
+
         console.log(`[Update] SUCCESS: ${id} updated.`);
         res.json({ status: 'success' });
     } catch (error) {
@@ -172,16 +172,92 @@ app.put('/automation/:id', async (req, res) => {
     }
 });
 
+// 2.5 Run API Proxy (New Feature)
+app.post('/run-api', async (req, res) => {
+    const { method, url, headers, body } = req.body;
+    console.log(`[API Proxy] ${method} ${url}`);
+
+    try {
+        const options = {
+            method,
+            headers: { ...headers, 'User-Agent': 'Zentest-Automation/1.0' },
+            redirect: 'manual' // Prevent automatic redirects to login pages or SPA index.html
+        };
+
+        if (body && ['POST', 'PUT', 'PATCH'].includes(method)) {
+            options.body = typeof body === 'object' ? JSON.stringify(body) : body;
+        }
+
+        const start = Date.now();
+        console.log(`[API Proxy] Fetching: ${url}`);
+        const response = await fetch(url, options);
+        const duration = Date.now() - start;
+
+        // Try to parse response body
+        const contentType = response.headers.get('content-type');
+        let data;
+        let dataText = '';
+
+        try {
+            dataText = await response.text();
+            if (contentType && contentType.includes('application/json')) {
+                data = JSON.parse(dataText);
+            } else {
+                data = dataText;
+            }
+        } catch (e) {
+            data = dataText; // Fallback
+        }
+
+        console.log(`[API Proxy] Response: ${response.status} ${response.statusText} (${duration}ms)`);
+
+        // Critical Fix: If we get HTML, it means we hit a 404 page or SPA fallback, NOT the API.
+        // This happens when the target server is down (and we hit localhost:3000 which might be running something else?)
+        // OR if the URL is wrong.
+        if (typeof data === 'string' && (data.trim().startsWith('<!DOCTYPE html>') || data.trim().startsWith('<html'))) {
+            console.warn('[API Proxy] Error: Received HTML response. Target API is likely down or URL is wrong.');
+            // Override status to indicate failure
+            return res.json({
+                status: 404, // or 502
+                statusText: 'Not Found (API Unreachable)',
+                headers: Object.fromEntries(response.headers.entries()),
+                data: 'Error: Received HTML instead of JSON. The target API might be down or the URL is incorrect.',
+                duration
+            });
+        }
+
+        res.json({
+            status: response.status,
+            statusText: response.statusText,
+            headers: Object.fromEntries(response.headers.entries()),
+            data,
+            duration
+        });
+
+    } catch (error) {
+        console.error('[API Proxy] Error:', error.message);
+        const isConnectionRefused = error.message.includes('fetch failed') || error.code === 'ECONNREFUSED';
+
+        res.status(200).json({ // Return 200 to Client so it can parse the error object
+            status: 0,
+            statusText: isConnectionRefused ? 'Connection Refused' : 'Network Error',
+            data: `Could not connect to ${url}. Please make sure the local server is running.`,
+            error: error.message,
+            duration: 0
+        });
+    }
+});
+
 // 3. รัน Automation
 app.post('/run', async (req, res) => {
-    const { steps } = req.body;
-    console.log(`[Run] Executing ${steps?.length || 0} steps...`);
-    
+    const { steps, headless } = req.body;
+    console.log(`[Run] Executing ${steps?.length || 0} steps... (Headless: ${!!headless})`);
+
     if (!steps || !Array.isArray(steps)) return res.status(400).json({ error: 'Invalid steps' });
 
     let browser;
     try {
-        browser = await chromium.launch({ headless: false, slowMo: 100 });
+        browser = await chromium.launch({ headless: !!headless, slowMo: 100 });
         const context = await browser.newContext();
         const page = await context.newPage();
         const logs = [];
@@ -211,7 +287,7 @@ app.post('/run', async (req, res) => {
                 } else if (step.type === 'ASSERT_URL') {
                     const currentUrl = page.url();
                     console.log(`[Assert] Checking URL... Expected to contain: "${step.value}" | Current: "${currentUrl}"`);
-                    
+
                     // Instant check first
                     if (currentUrl.includes(step.value)) {
                         console.log('[Assert] URL Match (Instant)');
@@ -221,7 +297,7 @@ app.post('/run', async (req, res) => {
                             await page.waitForURL(url => url.href.includes(step.value), { timeout: 5000 });
                             console.log('[Assert] URL Match (After Wait)');
                         } catch (waitErr) {
-                             throw new Error(`หมดเวลาในการรอ URL (Timeout 5s). คาดหวัง: "${step.value}" แต่พบ: "${page.url()}"`);
+                            throw new Error(`หมดเวลาในการรอ URL (Timeout 5s). คาดหวัง: "${step.value}" แต่พบ: "${page.url()}"`);
                         }
                     }
                 } else if (step.type === 'ASSERT_TEXT') {
@@ -235,7 +311,7 @@ app.post('/run', async (req, res) => {
                         );
                         console.log('[Assert] Text Found!');
                     } catch (e) {
-                         throw new Error(`ไม่พบข้อความ: "${step.value}" บนหน้าจอ (Timeout 5s)`);
+                        throw new Error(`ไม่พบข้อความ: "${step.value}" บนหน้าจอ (Timeout 5s)`);
                     }
                 } else if (step.type === 'ASSERT_VISIBLE') {
                     const selector = step.xpath ? `xpath=${step.xpath}` : step.id ? `#${step.id}` : null;
@@ -266,7 +342,7 @@ app.post('/run', async (req, res) => {
                     // Use a shorter timeout to check body text if failing
                     const pageText = await page.innerText('body', { timeout: 2000 }).catch(() => '');
                     const foundKeyword = errorKeywords.find(kw => pageText.toLowerCase().includes(kw));
-                    
+
                     if (foundKeyword) {
                         userFriendlyError = `ตรวจพบข้อความแจ้งเตือนบนหน้าจอ: "${foundKeyword}" (อาจจะเป็นสาเหตุที่ทำให้เทสไม่ผ่าน)`;
                     } else if (userFriendlyError.includes('Timeout')) {
@@ -275,33 +351,33 @@ app.post('/run', async (req, res) => {
                 } catch (checkErr) { /* fallback to original error */ }
 
                 try {
-                   const failScreenshot = await page.screenshot({ type: 'jpeg', quality: 60 });
-                   screenshots.push({
-                       stepIndex: index,
-                       base64: `data:image/jpeg;base64,${failScreenshot.toString('base64')}`,
-                       status: 'failed'
-                   });
+                    const failScreenshot = await page.screenshot({ type: 'jpeg', quality: 60 });
+                    screenshots.push({
+                        stepIndex: index,
+                        base64: `data:image/jpeg;base64,${failScreenshot.toString('base64')}`,
+                        status: 'failed'
+                    });
                 } catch (screenErr) {
                     console.warn(`[Screenshot] Failed to capture failure at step ${index}:`, screenErr.message);
                 }
 
                 logs.push(`${logPrefix} Failed: ${userFriendlyError}`);
                 // Close browser on failure
-                try { await browser.close(); } catch (e) {}
+                try { await browser.close(); } catch (e) { }
 
-                res.json({ 
-                    status: 'failed', 
-                    message: userFriendlyError, 
+                res.json({
+                    status: 'failed',
+                    message: userFriendlyError,
                     logs,
-                    screenshots 
+                    screenshots
                 });
                 return;
             }
         }
-        
+
         // Close browser immediately on success
-        try { await browser.close(); } catch (e) {}
-        
+        try { await browser.close(); } catch (e) { }
+
         res.json({ status: 'success', logs, screenshots });
     } catch (error) {
         console.error('CRITICAL ERROR in /run:', error);

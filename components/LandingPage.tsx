@@ -9,9 +9,10 @@ interface LandingPageProps {
     onDemo: () => void;
     onEnterStudio: () => void;
     onLogout: () => void;
+    onLicense: () => void;
 }
 
-const LandingPage: React.FC<LandingPageProps> = ({ user, onLogin, onDemo, onEnterStudio, onLogout }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ user, onLogin, onDemo, onEnterStudio, onLogout, onLicense }) => {
 
     return (
         <div className="min-h-screen bg-[#020202] text-white flex flex-col font-sans selection:bg-indigo-500/30 overflow-x-hidden relative">
@@ -52,6 +53,14 @@ const LandingPage: React.FC<LandingPageProps> = ({ user, onLogin, onDemo, onEnte
                                     <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-[#020202] rounded-full"></div>
                                 </div>
                             </div>
+                            <button
+                                onClick={onLicense}
+                                className="p-2 text-white/40 hover:text-green-400 hover:bg-green-500/10 rounded-lg transition-all flex items-center gap-2"
+                                title="Manage Membership"
+                            >
+                                <Zap size={18} />
+                                <span className="text-xs font-bold uppercase tracking-wider hidden sm:inline-block">Membership</span>
+                            </button>
                             <button
                                 onClick={onLogout}
                                 className="p-2 text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-all"
@@ -345,7 +354,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ user, onLogin, onDemo, onEnte
                 </div>
                 <p>&copy; 2024 ZenTest Inc. Designed for quality.</p>
             </footer>
-        </div>
+        </div >
     );
 };
 

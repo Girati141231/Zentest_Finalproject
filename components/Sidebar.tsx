@@ -13,7 +13,6 @@ interface SidebarProps {
   onCreateProject: () => void;
   onJoinProject: () => void;
   onSettings: () => void;
-  onLicense: () => void;
   onCreateLicense?: () => void; // New optional prop for testing
   onLogout: () => void;
   onBackToHome: () => void; // New prop
@@ -30,7 +29,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   onCreateProject,
   onJoinProject,
   onSettings,
-  onLicense, // Destructure
   onCreateLicense,
   onLogout,
   onBackToHome, // Destructure
@@ -41,18 +39,18 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside
-      className={`h-full bg-[#020202] border-r border-white/5 flex flex-col transition-all duration-300 relative z-20 ${isExpanded ? 'w-64' : 'w-16'}`}
+      className={`h-full bg-[#020202] border-r border-white/5 flex flex-col transition-all duration-200 relative z-20 overflow-hidden ${isExpanded ? 'w-64' : 'w-16'}`}
     >
-      <div className="p-4 flex items-center justify-between mb-2 h-16 flex-shrink-0">
+      <div className={`p-4 flex items-center ${isExpanded ? 'justify-between flex-row h-16' : 'flex-col justify-center gap-6 py-6'} mb-2 flex-shrink-0 transition-all duration-300`}>
         <button
           onClick={onBackToHome}
-          className={`flex items-center gap-3 transition-opacity duration-300 hover:opacity-80 ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 pointer-events-none'}`}
+          className={`flex items-center transition-opacity duration-300 hover:opacity-80 ${isExpanded ? 'gap-3 opacity-100' : 'justify-center'}`}
           title="Back to Landing Page"
         >
           <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
             <img src="/Zenlogo.png" alt="Logo" className="w-7 h-7 object-contain" />
           </div>
-          <span className="font-bold tracking-tighter text-white whitespace-nowrap text-lg">ZENTEST</span>
+          <span className={`font-bold tracking-tighter text-white text-lg transition-all duration-200 whitespace-nowrap overflow-hidden ${isExpanded ? 'opacity-100 max-w-[200px]' : 'opacity-0 max-w-0'}`}>ZENTEST</span>
         </button>
         <button
           onClick={onToggleExpand}
@@ -63,7 +61,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       <div className="flex-1 flex flex-col gap-2 overflow-y-auto no-scrollbar px-3">
-        <div className={`px-2 py-2 text-[10px] uppercase tracking-widest text-white/20 font-bold overflow-hidden transition-all duration-300 ${isExpanded ? 'opacity-100 h-auto mb-2' : 'opacity-0 h-0'}`}>
+        <div className={`px-2 py-2 text-[10px] uppercase tracking-widest text-white/20 font-bold overflow-hidden transition-all duration-200 whitespace-nowrap ${isExpanded ? 'opacity-100 h-auto mb-2' : 'opacity-0 h-0 mb-0'}`}>
           Scopes
         </div>
         {projects.map(p => (
@@ -84,8 +82,8 @@ const Sidebar: React.FC<SidebarProps> = ({
               )}
             </div>
             {isExpanded && (
-              <div className="flex flex-col min-w-0 animate-in fade-in slide-in-from-left-2 duration-300">
-                <span className={`text-sm font-medium truncate transition-colors ${activeProjectId === p.id ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-200'}`}>
+              <div className="flex flex-col min-w-0 animate-in fade-in slide-in-from-left-2 duration-200 overflow-hidden">
+                <span className={`text-sm font-medium truncate transition-colors whitespace-nowrap ${activeProjectId === p.id ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-200'}`}>
                   {p.name}
                 </span>
               </div>
@@ -100,7 +98,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             title="Create New Scope"
           >
             <Plus size={16} className="flex-shrink-0" />
-            {isExpanded && <span className="font-medium text-sm animate-in fade-in duration-300">New Project</span>}
+            {isExpanded && <span className="font-medium text-sm animate-in fade-in duration-200 whitespace-nowrap overflow-hidden">New Project</span>}
           </button>
           <button
             onClick={onJoinProject}
@@ -108,7 +106,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             title="Join Existing Scope"
           >
             <Share2 size={16} className="flex-shrink-0" />
-            {isExpanded && <span className="font-medium text-sm animate-in fade-in duration-300">Join Project</span>}
+            {isExpanded && <span className="font-medium text-sm animate-in fade-in duration-200 whitespace-nowrap overflow-hidden">Join Project</span>}
           </button>
         </div>
       </div>
@@ -125,26 +123,19 @@ const Sidebar: React.FC<SidebarProps> = ({
           </button>
         )}
         <button
-          onClick={onLicense}
-          className={`flex items-center text-white/40 hover:text-green-400 transition-colors rounded-sm py-1 ${isExpanded ? 'gap-3 px-2' : 'justify-center'}`}
-        >
-          <Shield size={18} className="flex-shrink-0" />
-          {isExpanded && <span className="font-medium text-sm animate-in fade-in duration-300">Membership</span>}
-        </button>
-        <button
           disabled={!activeProjectId}
           onClick={onSettings}
           className={`flex items-center text-white/40 hover:text-white transition-colors disabled:opacity-20 rounded-sm py-1 ${isExpanded ? 'gap-3 px-2' : 'justify-center'}`}
         >
           <Settings size={18} className="flex-shrink-0" />
-          {isExpanded && <span className="font-medium text-sm animate-in fade-in duration-300">Config</span>}
+          {isExpanded && <span className="font-medium text-sm animate-in fade-in duration-200 whitespace-nowrap overflow-hidden">Config</span>}
         </button>
         <button
           onClick={onLogout}
           className={`flex items-center text-white/40 hover:text-red-500 transition-colors rounded-sm py-1 ${isExpanded ? 'gap-3 px-2' : 'justify-center'}`}
         >
           <LogOut size={18} className="flex-shrink-0" />
-          {isExpanded && <span className="font-medium text-sm animate-in fade-in duration-300">Sign Out</span>}
+          {isExpanded && <span className="font-medium text-sm animate-in fade-in duration-200 whitespace-nowrap overflow-hidden">Sign Out</span>}
         </button>
 
         <div className={`flex items-center overflow-hidden transition-all duration-300 pt-2 border-t border-white/5 ${isExpanded ? 'gap-3 w-full' : 'justify-center w-full'}`}>
@@ -162,8 +153,8 @@ const Sidebar: React.FC<SidebarProps> = ({
             )}
           </div>
           {isExpanded && (
-            <div className="flex flex-col min-w-0 animate-in fade-in duration-300">
-              <span className="text-[11px] font-bold truncate text-white">
+            <div className="flex flex-col min-w-0 animate-in fade-in duration-200 overflow-hidden">
+              <span className="text-[11px] font-bold truncate text-white whitespace-nowrap">
                 {user.displayName || 'Enterprise User'}
                 {isPro ? (
                   <span className="ml-2 text-[9px] bg-green-900/40 text-green-400 px-1.5 py-0.5 rounded border border-green-500/30 animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.2)] tracking-wider">PRO</span>
@@ -171,7 +162,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   <span className="ml-2 text-[9px] bg-white/10 text-white/40 px-1.5 py-0.5 rounded border border-white/10 tracking-wider">FREE</span>
                 )}
               </span>
-              <span className="text-[9px] text-white/30 truncate">{user.email}</span>
+              <span className="text-[9px] text-white/30 truncate whitespace-nowrap">{user.email}</span>
             </div>
           )}
         </div>

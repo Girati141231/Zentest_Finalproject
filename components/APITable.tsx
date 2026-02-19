@@ -19,6 +19,7 @@ interface APITableProps {
     onMessage: (tc: APITestCase) => void;
     readOnly?: boolean;
     readStatus?: Record<string, number>;
+    onCreate?: () => void;
 }
 
 const METHOD_COLORS = {
@@ -42,160 +43,206 @@ const APITable: React.FC<APITableProps> = ({
     onStatusUpdate,
     onMessage,
     readOnly = false,
-    readStatus = {}
+    readStatus = {},
+    onCreate
 }) => {
+    const [expandedDetails, setExpandedDetails] = React.useState<Set<string>>(new Set());
+
+    const toggleDetails = (id: string, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        const next = new Set(expandedDetails);
+        if (next.has(id)) next.delete(id); else next.add(id);
+        setExpandedDetails(next);
+    };
+
     return (
-        <div className="border border-white/10 rounded-sm overflow-hidden bg-[#050505]">
-            <table className="w-full text-left border-collapse">
+        <div className="border border-white/10 rounded-sm overflow-x-auto bg-[#050505] custom-scrollbar">
+            <table className="w-full text-left border-collapse table-fixed min-w-[1200px]">
                 <thead>
-                    <tr className="bg-white/[0.02] text-[10px] text-white/30 uppercase tracking-widest border-b border-white/10">
-                        <th className="px-4 py-3 w-10 text-center">
+                    <tr className="bg-white/[0.02] text-[10px] text-white/30 uppercase tracking-widest border-b border-white/5">
+                        <th className="px-6 py-5 w-[60px] text-center">
                             <button onClick={onToggleSelectAll} className="hover:text-white transition-colors">
-                                {cases.length > 0 && selectedIds.size === cases.length ? <CheckSquare size={16} /> : <Square size={16} className="opacity-30" />}
+                                {cases.length > 0 && selectedIds.size === cases.length ? <CheckSquare size={18} /> : <Square size={18} className="opacity-30" />}
                             </button>
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase tracking-wider">Method</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase tracking-wider w-1/3">Endpoint</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase tracking-wider">ID</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase tracking-wider">Status</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase tracking-wider">Round</th>
-                        <th className="px-4 py-3 font-bold w-32">Module</th>
-                        <th className="px-4 py-3 font-bold w-16 text-center">Run</th>
-                        <th className="px-4 py-3 font-bold w-36 border-l border-white/5">Update By</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-white/50 uppercase tracking-wider">Actions</th>
+                        <th className="px-6 py-5 font-bold w-[120px]">Method</th>
+                        <th className="px-6 py-5 font-bold">Request Details</th>
+                        <th className="px-6 py-5 font-bold w-[140px]">Scenario ID</th>
+                        <th className="px-6 py-5 font-bold w-[120px] text-center">Status</th>
+                        <th className="px-6 py-5 font-bold w-[80px] text-center">Exec</th>
+                        <th className="px-6 py-5 font-bold w-[200px]">Last Audit</th>
+                        <th className="px-6 py-5 w-[160px] text-center">Actions</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
                     {cases.length > 0 ? cases.map(c => (
-                        <tr key={c.id} className={`hover:bg-white/[0.03] group transition-all ${selectedIds.has(c.id) ? 'bg-white/[0.04]' : ''}`}>
-                            <td className="px-4 py-3 text-center">
-                                <button onClick={() => onToggleSelect(c.id)} className={`${selectedIds.has(c.id) ? 'text-blue-500' : 'text-white/10'} hover:text-blue-400 transition-colors`}>
-                                    {selectedIds.has(c.id) ? <CheckSquare size={16} /> : <Square size={16} />}
+                        <tr key={c.id} className={`hover:bg-white/[0.02] group transition-all duration-200 ${selectedIds.has(c.id) ? 'bg-blue-500/[0.03]' : ''}`}>
+                            {/* Checkbox */}
+                            <td className="px-6 py-6 text-center align-middle">
+                                <button
+                                    onClick={() => onToggleSelect(c.id)}
+                                    className={`${selectedIds.has(c.id) ? 'text-blue-500 scale-110' : 'text-white/10 hover:text-white/40'} transition-all`}
+                                >
+                                    {selectedIds.has(c.id) ? <CheckSquare size={18} /> : <Square size={18} />}
                                 </button>
                             </td>
-                            <td className="px-4 py-4 text-xs">
-                                <span className={`font-bold ${c.method === 'GET' ? 'text-blue-400' : c.method === 'POST' ? 'text-emerald-400' : c.method === 'DELETE' ? 'text-red-400' : 'text-amber-400'}`}>
+
+                            {/* Method */}
+                            <td className="px-6 py-6 align-middle">
+                                <span className={`px-2.5 py-1 rounded text-[11px] font-black uppercase tracking-wider border ${METHOD_COLORS[c.method as keyof typeof METHOD_COLORS] || 'text-white/50 bg-white/5 border-white/10'}`}>
                                     {c.method}
                                 </span>
                             </td>
-                            <td className="px-4 py-4 text-xs text-white/80 font-medium truncate max-w-[200px]" title={c.url}>
-                                {c.url}
+
+                            {/* Endpoint & Details */}
+                            <td className="px-6 py-6 align-middle">
+                                <div className="flex flex-col gap-3 group/details">
+                                    <div className="flex flex-col gap-0.5 min-w-0">
+                                        {c.title && <div className="text-xs font-bold text-white truncate">{c.title}</div>}
+                                        <div className="font-mono text-[10px] text-white/50 truncate max-w-[400px]" title={c.url}>
+                                            {c.url}
+                                        </div>
+                                    </div>
+
+                                    {/* Toggle Toggle */}
+                                    <div
+                                        onClick={(e) => toggleDetails(c.id, e)}
+                                        className="flex items-center gap-2 text-[10px] font-bold text-white/40 cursor-pointer w-fit hover:text-blue-400 transition-colors uppercase tracking-widest"
+                                    >
+                                        <Activity size={12} />
+                                        <span>{expandedDetails.has(c.id) ? 'Hide Request Details' : 'View Request Details'}</span>
+                                    </div>
+
+                                    {/* Expanded Details */}
+                                    {expandedDetails.has(c.id) && (
+                                        <div className="animate-in slide-in-from-top-2 fade-in duration-300 space-y-3 mt-1 bg-black/40 rounded border border-white/5 p-4">
+                                            {c.headers && c.headers.length > 0 && (
+                                                <div className="space-y-1.5">
+                                                    <div className="text-[9px] text-white/30 uppercase tracking-widest font-bold">Headers</div>
+                                                    <div className="grid gap-1">
+                                                        {c.headers.map((h, i) => (
+                                                            <div key={i} className="text-[10px] font-mono flex gap-2">
+                                                                <span className="text-blue-400">{h.key}:</span>
+                                                                <span className="text-white/60">{h.value}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {c.body && (
+                                                <div className="space-y-1.5">
+                                                    <div className="text-[9px] text-white/30 uppercase tracking-widest font-bold">Request Body</div>
+                                                    <pre className="text-[10px] font-mono text-white/60 bg-white/[0.02] p-2 rounded border border-white/5 overflow-x-auto">
+                                                        {typeof c.body === 'string' ? c.body : JSON.stringify(c.body, null, 2)}
+                                                    </pre>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             </td>
-                            <td className="px-4 py-4 text-white/50 text-xs font-bold">{c.id}</td>
-                            <td className="px-4 py-3"><Badge variant={c.status}>{c.status}</Badge></td>
-                            <td className="px-4 py-3 text-center text-xs text-white/50">{c.round || 1}</td>
-                            <td className="px-4 py-3"><Badge>{c.module || 'Unassigned'}</Badge></td>
-                            <td className="px-4 py-3 text-center">
+
+                            {/* ID & Module */}
+                            <td className="px-6 py-6 align-middle">
+                                <div className="flex flex-col gap-1.5">
+                                    <span className="font-mono text-xs font-bold text-blue-400">
+                                        {c.id}
+                                    </span>
+                                    <Badge variant={c.module ? 'Medium' : 'Pending'} className="w-fit scale-90 origin-left">
+                                        {c.module || 'GENERAL'}
+                                    </Badge>
+                                </div>
+                            </td>
+
+                            {/* Status */}
+                            <td className="px-6 py-6 align-middle text-center">
+                                <Badge variant={c.status} className="scale-110 shadow-sm">{c.status}</Badge>
+                            </td>
+
+                            {/* Run Button */}
+                            <td className="px-6 py-6 align-middle text-center">
                                 {executingId === c.id || (executingId === 'bulk' && selectedIds.has(c.id)) ? (
-                                    <RefreshCcw size={14} className="animate-spin text-blue-500 m-auto" />
+                                    <div className="inline-flex p-2 rounded-full bg-blue-500/20 text-blue-400 animate-pulse">
+                                        <RefreshCcw size={16} className="animate-spin" />
+                                    </div>
                                 ) : (
                                     <button
                                         onClick={() => onRun(c)}
-                                        className="p-1.5 hover:bg-emerald-500/20 hover:text-emerald-400 text-white/20 rounded transition-all m-auto"
+                                        className="inline-flex p-2 rounded-full bg-white/5 text-white/40 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all border border-transparent hover:border-emerald-500/20"
                                         title="Run API Request"
                                     >
-                                        <Wifi size={14} fill="currentColor" />
+                                        <Wifi size={16} fill="currentColor" />
                                     </button>
                                 )}
                             </td>
-                            <td className="px-4 py-4 text-[11px] text-white/40 border-l border-white/5">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-6 h-6 rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
-                                        {c.lastUpdatedByPhoto ? (
-                                            <img src={c.lastUpdatedByPhoto} alt="User" className="w-full h-full object-cover" />
-                                        ) : (
-                                            <User size={12} className="text-white/30" />
-                                        )}
+
+                            {/* Audit */}
+                            <td className="px-6 py-6 align-middle">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-white/5 to-white/10 p-[1px] shadow-inner">
+                                        <div className="w-full h-full rounded-full overflow-hidden bg-black/50 flex items-center justify-center">
+                                            {c.lastUpdatedByPhoto ? <img src={c.lastUpdatedByPhoto} className="w-full h-full object-cover" /> : <User size={14} className="text-white/30" />}
+                                        </div>
                                     </div>
-                                    <div className="flex flex-col">
-                                        <span className="font-bold truncate max-w-[80px] text-white/70">{c.lastUpdatedByName || '-'}</span>
-                                        <span className="text-[9px] text-white/20">
-                                            {c.timestamp ? new Date(c.timestamp).toLocaleString(undefined, {
-                                                month: 'short',
-                                                day: 'numeric',
-                                                hour: '2-digit',
-                                                minute: '2-digit'
-                                            }) : '-'}
-                                        </span>
+                                    <div>
+                                        <div className="text-xs font-medium text-white/90">{c.lastUpdatedByName || 'System'}</div>
+                                        <div className="text-[10px] text-white/40 font-mono mt-0.5">
+                                            {c.timestamp ? new Date(c.timestamp).toLocaleDateString('en-GB') : '-'}
+                                        </div>
                                     </div>
                                 </div>
                             </td>
-                            <td className="px-4 py-4 text-right">
-                                <div className="flex items-center justify-center gap-2">
-                                    {!readOnly && (
-                                        <>
-                                            <button
-                                                onClick={() => onStatusUpdate(c.id, 'Passed')}
-                                                className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/50 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all"
-                                                title="Mark Passed"
-                                            >
-                                                <CheckCircle2 size={16} />
-                                            </button>
-                                            <button
-                                                onClick={() => onStatusUpdate(c.id, 'Failed')}
-                                                className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/50 hover:text-red-400 hover:bg-red-500/10 transition-all"
-                                                title="Mark Failed"
-                                            >
-                                                <XCircle size={16} />
-                                            </button>
 
-                                            <div className="w-px h-4 bg-white/5 mx-1"></div>
-                                        </>
+                            {/* Actions */}
+                            <td className="px-6 py-6 align-middle text-center">
+                                <div className="flex flex-col gap-2 items-center">
+                                    {!readOnly && (
+                                        <div className="flex items-center bg-white/5 rounded-lg p-1 border border-white/5 shadow-sm">
+                                            <button onClick={() => onStatusUpdate(c.id, 'Passed')} className="w-7 h-7 flex items-center justify-center rounded hover:bg-emerald-500 hover:text-white text-white/30 transition-all"><CheckCircle2 size={16} /></button>
+                                            <div className="w-px h-3 bg-white/10 mx-0.5"></div>
+                                            <button onClick={() => onStatusUpdate(c.id, 'Failed')} className="w-7 h-7 flex items-center justify-center rounded hover:bg-red-500 hover:text-white text-white/30 transition-all"><XCircle size={16} /></button>
+                                        </div>
                                     )}
 
-                                    <button
-                                        onClick={() => onMessage(c)}
-                                        className="relative flex items-center justify-center w-8 h-8 rounded-full border border-white/5 bg-white/[0.02] text-white/60 hover:text-blue-400 hover:bg-blue-500/10 hover:border-blue-500/20 transition-all shadow-sm"
-                                        title="Comments"
-                                    >
-                                        <MessageSquare size={14} />
-                                        {(() => {
-                                            const total = c.commentCount || 0;
-                                            const read = readStatus[c.id] || 0;
-                                            const unread = total - read;
-
-                                            return unread > 0 ? (
-                                                <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-[8px] font-bold px-1 rounded-full min-w-[14px] h-[14px] flex items-center justify-center border border-[#050505] shadow-sm">
-                                                    {unread}
-                                                </span>
-                                            ) : null;
-                                        })()}
-                                    </button>
-
-                                    {!readOnly && (
-                                        <>
-                                            <button
-                                                onClick={() => onEdit(c)}
-                                                className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/60 hover:text-white transition-all"
-                                            >
-                                                <Edit3 size={14} />
-                                            </button>
-                                            <button
-                                                onClick={() => onDelete(c.id)}
-                                                className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/50 hover:text-red-500 hover:border-red-500/20 hover:bg-red-500/5 transition-all"
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
-                                        </>
-                                    )}
+                                    <div className="flex items-center gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
+                                        <button onClick={() => onMessage(c)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-blue-500/20 hover:text-blue-400 text-white/50 transition-all relative">
+                                            <MessageSquare size={14} />
+                                            {c.commentCount && c.commentCount > (readStatus[c.id] || 0) ? <span className="absolute top-0 right-0 w-2 h-2 rounded-full bg-blue-500 border border-black"></span> : null}
+                                        </button>
+                                        {!readOnly && (
+                                            <>
+                                                <button onClick={() => onEdit(c)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-white/10 hover:text-white text-white/50 transition-all"><Edit3 size={14} /></button>
+                                                <button onClick={() => onDelete(c.id)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-red-500/20 hover:text-red-400 text-white/50 transition-all"><Trash2 size={14} /></button>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
                             </td>
                         </tr>
                     )) : (
                         <tr>
-                            <td colSpan={10} className="px-4 py-24 text-center">
-                                <div className="flex flex-col items-center gap-3 opacity-20">
-                                    <Activity size={48} strokeWidth={1} />
-                                    <span className="text-xs uppercase tracking-widest font-bold">
-                                        {activeProjectId ? "No API Tests Found" : "Select or Create a Scope"}
-                                    </span>
+                            <td colSpan={8} className="px-6 py-32 text-center">
+                                <div className="flex flex-col items-center gap-4">
+                                    <div className="flex flex-col items-center gap-4 text-white/30">
+                                        <Activity size={64} strokeWidth={0.5} />
+                                        <span className="text-sm uppercase tracking-[0.2em] font-light">No API Tests Found</span>
+                                    </div>
+                                    {onCreate && (
+                                        <button
+                                            onClick={onCreate}
+                                            className="mt-4 px-6 py-2 border border-white/20 hover:bg-white hover:text-black hover:border-white rounded-sm text-xs font-bold uppercase tracking-widest text-white/60 transition-all pointer-events-auto"
+                                        >
+                                            + Create First API Test
+                                        </button>
+                                    )}
                                 </div>
                             </td>
                         </tr>
                     )}
                 </tbody>
-            </table >
-        </div >
+            </table>
+        </div>
     );
 };
 

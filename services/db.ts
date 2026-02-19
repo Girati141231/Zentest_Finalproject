@@ -177,6 +177,18 @@ export const ProjectService = {
     }
   },
 
+  updatePresence: async (projectId: string, uid: string) => {
+    if (!isConfigured) return;
+    try {
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projects', projectId, 'members', uid), {
+        lastSeen: Date.now(),
+        isOnline: true
+      });
+    } catch (e) {
+      // Ignore presence update errors to avoid spamming logs
+    }
+  },
+
   update: async (id: string, data: Partial<Project>) => {
     if (!isConfigured) { await delay(300); return; }
     const ref = doc(db, PUBLIC_DATA_PATH[0], PUBLIC_DATA_PATH[1], PUBLIC_DATA_PATH[2], PUBLIC_DATA_PATH[3], 'projects', id);
@@ -373,5 +385,35 @@ export const UserReadStatusService = {
     await setDoc(ref, {
       [testCaseId]: count
     }, { merge: true });
+  }
+};
+
+export const ExecutionHistoryService = {
+  add: async (entry: Omit<import('../types').ExecutionHistory, 'id'>) => {
+    if (!isConfigured) return;
+    try {
+      await addDoc(collection(db, PUBLIC_DATA_PATH[0], PUBLIC_DATA_PATH[1], PUBLIC_DATA_PATH[2], PUBLIC_DATA_PATH[3], 'executionLogs'), {
+        ...entry,
+        timestamp: Date.now()
+      });
+    } catch (e) {
+      console.error("Failed to save execution log:", e);
+    }
+  },
+
+  list: async (testCaseId: string) => {
+    if (!isConfigured) return [];
+    try {
+      const q = query(
+        collection(db, PUBLIC_DATA_PATH[0], PUBLIC_DATA_PATH[1], PUBLIC_DATA_PATH[2], PUBLIC_DATA_PATH[3], 'executionLogs'),
+        where('testCaseId', '==', testCaseId)
+      );
+      const snapshot = await getDocs(q);
+      const logs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as import('../types').ExecutionHistory));
+      return logs.sort((a, b) => b.timestamp - a.timestamp);
+    } catch (e) {
+      console.error("Failed to load history:", e);
+      return [];
+    }
   }
 };
