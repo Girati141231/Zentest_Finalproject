@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
-  Play, Search, LogIn, CheckSquare, Eye, EyeOff, AlertCircle, Download, Activity, Globe, Trash2, LayoutDashboard, ChevronRight
+  Play, Search, LogIn, CheckSquare, Eye, EyeOff, AlertCircle, Download, Activity, Globe, Trash2, LayoutDashboard, ChevronRight, Lock
 } from 'lucide-react';
 import {
   onAuthStateChanged,
@@ -645,6 +645,7 @@ export default function App() {
         }}
         onJoinProject={() => setProjectModalMode('join')}
         onSettings={() => setProjectModalMode('edit')}
+        pendingRequestCount={activeProject?.role === 'owner' ? projectMembers.filter(m => m.accessRequested).length : 0}
       />
 
       <main className="flex-1 flex flex-col transition-all duration-300">
@@ -668,12 +669,22 @@ export default function App() {
                   // Optimistic update or wait for snapshot
                 }}
                 disabled={projectMembers.find(m => m.uid === user.uid)?.accessRequested}
-                className={`text-[9px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-widest transition-all ${projectMembers.find(m => m.uid === user.uid)?.accessRequested
-                    ? 'bg-zinc-800 text-zinc-500 border-zinc-700 cursor-not-allowed'
-                    : 'bg-blue-600/20 text-blue-400 border-blue-500/30 hover:bg-blue-600/30 hover:border-blue-500/50'
+                className={`flex items-center gap-2 text-[10px] px-3 py-1.5 rounded-sm font-bold uppercase tracking-widest transition-all shadow-lg ${projectMembers.find(m => m.uid === user.uid)?.accessRequested
+                  ? 'bg-zinc-800 text-zinc-500 border border-zinc-700 cursor-not-allowed'
+                  : 'bg-blue-600 text-white hover:bg-blue-500 border border-blue-500 shadow-blue-500/20 hover:shadow-blue-500/40'
                   }`}
               >
-                {projectMembers.find(m => m.uid === user.uid)?.accessRequested ? 'Request Sent' : 'Request Edit Access'}
+                {projectMembers.find(m => m.uid === user.uid)?.accessRequested ? (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-pulse" />
+                    Request Sent
+                  </>
+                ) : (
+                  <>
+                    <Lock size={12} />
+                    Request Edit Access
+                  </>
+                )}
               </button>
             )}
           </div>
@@ -981,7 +992,10 @@ export default function App() {
         user={user}
         modules={modules}
         onSave={(data) => handleProjectSave(data, projectModalMode)}
-        onJoin={handleJoin}
+        onJoin={async (code) => {
+          await handleJoin(code);
+          setProjectModalMode(null);
+        }}
         onDelete={handleDeleteProject}
         onAddModule={handleAddModule}
         onUpdateModule={handleUpdateModule}
