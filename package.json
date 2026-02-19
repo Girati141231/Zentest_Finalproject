@@ -23,5 +23,18 @@
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
-  }
+  },
+  "description": "",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ymetdev/Zentest_Finalproject.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ymetdev/Zentest_Finalproject/issues"
+  },
+  "homepage": "https://github.com/ymetdev/Zentest_Finalproject#readme"
 }

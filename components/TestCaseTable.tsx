@@ -19,6 +19,7 @@ interface TestCaseTableProps {
   onMessage: (tc: TestCase) => void;
   readOnly?: boolean;
   readStatus?: Record<string, number>;
+  onCreate?: () => void;
 }
 
 const TestCaseTable: React.FC<TestCaseTableProps> = ({
@@ -34,7 +35,8 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
   onStatusUpdate,
   onMessage,
   readOnly = false,
-  readStatus = {}
+  readStatus = {},
+  onCreate
 }) => {
   const [expandedSteps, setExpandedSteps] = React.useState<Set<string>>(new Set());
   const [expandedEvidence, setExpandedEvidence] = React.useState<Set<string>>(new Set());
@@ -64,295 +66,238 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
 
   return (
     <div className="border border-white/10 rounded-sm overflow-x-auto bg-[#050505] custom-scrollbar">
-      <table className="w-full text-left border-collapse table-fixed min-w-[1000px]">
+      <table className="w-full text-left border-collapse table-fixed min-w-[1200px]">
         <thead>
-          <tr className="bg-white/[0.02] text-[10px] text-white/30 uppercase tracking-widest border-b border-white/10">
-            <th className="px-4 py-4 w-[45px] text-center">
+          <tr className="bg-white/[0.02] text-[10px] text-white/30 uppercase tracking-widest border-b border-white/5">
+            <th className="px-6 py-5 w-[60px] text-center">
               <button onClick={onToggleSelectAll} className="hover:text-white transition-colors">
-                {cases.length > 0 && selectedIds.size === cases.length ? <CheckSquare size={16} /> : <Square size={16} className="opacity-30" />}
+                {cases.length > 0 && selectedIds.size === cases.length ? <CheckSquare size={18} /> : <Square size={18} className="opacity-30" />}
               </button>
             </th>
-            <th className="px-4 py-3 font-bold w-[220px]">Identifer & Scenario</th>
-            <th className="px-4 py-3 font-bold">Sequence & Expected Outcome</th>
-            <th className="px-4 py-3 font-bold w-[90px]">Priority</th>
-            <th className="px-4 py-3 font-bold w-[60px] text-center">Auto</th>
-            <th className="px-4 py-3 font-bold w-[90px] text-center">Status</th>
-            <th className="px-4 py-3 font-bold w-[180px] text-center">Audit</th>
-            <th className="px-4 py-3 w-[140px] text-center">Actions</th>
+            <th className="px-6 py-5 font-bold w-[300px]">Scenario Details</th>
+            <th className="px-6 py-5 font-bold">Execution Steps</th>
+            <th className="px-6 py-5 font-bold w-[100px] text-center">Priority</th>
+            <th className="px-6 py-5 font-bold w-[80px] text-center">Auto</th>
+            <th className="px-6 py-5 font-bold w-[110px] text-center">Status</th>
+            <th className="px-6 py-5 font-bold w-[200px]">Last Audit</th>
+            <th className="px-6 py-5 w-[160px] text-center">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-white/5">
           {cases.length > 0 ? cases.map(c => (
-            <tr key={c.id} className={`hover:bg-white/[0.03] group transition-all ${selectedIds.has(c.id) ? 'bg-white/[0.04]' : ''}`}>
-              <td className="px-4 py-4 text-center align-top">
-                <button onClick={() => onToggleSelect(c.id)} className={`${selectedIds.has(c.id) ? 'text-blue-500' : 'text-white/10'} hover:text-blue-400 transition-colors`}>
-                  {selectedIds.has(c.id) ? <CheckSquare size={16} /> : <Square size={16} />}
+            <tr key={c.id} className={`hover:bg-white/[0.02] group transition-all duration-200 ${selectedIds.has(c.id) ? 'bg-blue-500/[0.03]' : ''}`}>
+              {/* Checkbox */}
+              <td className="px-6 py-6 text-center align-middle">
+                <button
+                  onClick={() => onToggleSelect(c.id)}
+                  className={`${selectedIds.has(c.id) ? 'text-blue-500 scale-110' : 'text-white/10 hover:text-white/40'} transition-all`}
+                >
+                  {selectedIds.has(c.id) ? <CheckSquare size={18} /> : <Square size={18} />}
                 </button>
               </td>
-              <td className="px-4 py-4 align-top">
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-2 text-sm font-bold tracking-tight flex-wrap">
-                    <span className="text-blue-400">{c.id}</span>
-                    <span className="w-[1px] h-2 bg-white/10"></span>
-                    <span className="text-emerald-500 uppercase text-[10px]">{c.module || 'GENERAL'}</span>
-                    <span className="w-[1px] h-2 bg-white/10"></span>
-                    <span className="text-white/40">RD:{c.round || 1}</span>
+
+              {/* Identifier & Scenario */}
+              <td className="px-6 py-6 align-middle">
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-xs font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">
+                      {c.id}
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-500/80 uppercase tracking-wider bg-emerald-500/5 px-1.5 py-0.5 rounded border border-emerald-500/10">
+                      {c.module || 'GENERAL'}
+                    </span>
                   </div>
-                  <div className="text-white text-sm font-medium max-w-[300px] truncate group-hover:text-blue-400 transition-colors">
+                  <div className="text-white/90 text-[15px] font-medium leading-snug group-hover:text-blue-300 transition-colors">
                     {c.title}
                   </div>
+                  {c.round && (
+                    <div className="flex items-center gap-1.5 text-[10px] text-white/30 uppercase tracking-widest font-bold">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white/10"></span>
+                      ROUND {c.round}
+                    </div>
+                  )}
                 </div>
               </td>
-              <td className="px-4 py-4 align-top">
-                <div className="flex flex-col gap-2 group/steps max-w-4xl">
+
+              {/* Steps (Expandable) */}
+              <td className="px-6 py-6 align-middle">
+                <div className="flex flex-col gap-3 group/steps">
+                  {/* Toggle Header */}
                   <div
-                    className="flex items-center gap-2 text-white/50 text-xs group-hover/steps:text-white transition-colors cursor-pointer w-fit"
+                    className="flex items-center gap-2 text-white/40 text-xs cursor-pointer w-fit p-1 -ml-1 rounded hover:bg-white/5 transition-all"
                     onClick={() => toggleSteps(c.id)}
                   >
-                    <ListOrdered size={14} className="text-white/20 group-hover/steps:text-blue-400 transition-colors" />
-                    <span className="font-bold">{c.steps?.filter(s => s.trim()).length || 0} Steps</span>
-                    {expandedSteps.has(c.id) ? <ChevronDown size={12} /> : <ChevronRight size={12} className="opacity-0 group-hover/steps:opacity-100 transition-opacity" />}
+                    <div className={`p-1 rounded ${expandedSteps.has(c.id) ? 'bg-blue-500/20 text-blue-400' : 'bg-white/5 text-white/30'} transition-colors`}>
+                      <ListOrdered size={14} />
+                    </div>
+                    <span className="font-semibold">{c.steps?.filter(s => s.trim()).length || 0} Steps Defined</span>
+                    <ChevronRight size={12} className={`transition-transform duration-300 ${expandedSteps.has(c.id) ? 'rotate-90 text-blue-400' : 'opacity-50'}`} />
                   </div>
 
-                  {expandedSteps.has(c.id) && c.steps && c.steps.length > 0 && (
-                    <div className="pl-6 flex flex-col gap-1 animate-in slide-in-from-top-1 fade-in duration-200">
-                      {c.steps.filter(s => s.trim()).map((step, i) => (
-                        <div key={i} className="text-[10px] text-white/70 leading-relaxed flex gap-2">
-                          <span className="text-white/20 select-none">{i + 1}.</span>
-                          <span>{step}</span>
+                  {/* Expanded Content */}
+                  {expandedSteps.has(c.id) && (
+                    <div className="pl-2 animate-in slide-in-from-top-2 fade-in duration-300 space-y-4 border-l-2 border-white/5 ml-2.5 py-1">
+                      {/* Steps List */}
+                      {c.steps && c.steps.length > 0 && (
+                        <div className="space-y-2">
+                          {c.steps.filter(s => s.trim()).map((step, i) => (
+                            <div key={i} className="flex gap-3 text-sm text-white/70 leading-relaxed">
+                              <span className="text-white/10 font-mono text-xs select-none mt-0.5">{String(i + 1).padStart(2, '0')}</span>
+                              <span>{step}</span>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
 
-                      {/* Expected Result Section */}
+                      {/* Expected Result */}
                       {c.expected && (
-                        <div className="mt-2 py-2 px-3 bg-blue-500/5 border border-blue-500/20 rounded flex flex-col gap-1.5 border-dashed">
-                          <div className="flex items-center gap-1.5 text-[9px] font-black text-blue-400/80 uppercase tracking-widest">
-                            <Target size={10} />
-                            <span>Expected Result</span>
+                        <div className="bg-blue-500/5 rounded-md p-3 border border-blue-500/10">
+                          <div className="flex items-center gap-2 text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">
+                            <Target size={12} />
+                            <span>Expectation</span>
                           </div>
-                          <div className="text-[10px] text-white/70 leading-relaxed pl-3 border-l border-blue-500/30 space-y-1">
-                            {c.expected.split('\n').map((line, idx) => {
-                              const [label, ...rest] = line.split(':');
-                              const content = rest.join(':');
-                              return (
-                                <div key={idx} className="leading-normal">
-                                  {content ? (
-                                    <>
-                                      <span className="font-black text-white mr-1.5">{label}:</span>
-                                      <span className="text-white/60">{content}</span>
-                                    </>
-                                  ) : (
-                                    <span>{line}</span>
-                                  )}
-                                </div>
-                              );
-                            })}
+                          <div className="text-xs text-blue-100/70 leading-relaxed pl-1">
+                            {c.expected}
                           </div>
                         </div>
                       )}
 
-                      {/* Actual Result Section (Only if exists) */}
+                      {/* Actual Result */}
                       {c.actualResult && (
-                        <div className={`mt-2 py-2 px-3 border rounded flex flex-col gap-1.5 ${c.status === 'Failed' ? 'bg-red-500/5 border-red-500/20' : 'bg-emerald-500/5 border-emerald-500/20'}`}>
-                          <div className={`flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest ${c.status === 'Failed' ? 'text-red-400' : 'text-emerald-400'}`}>
-                            {c.status === 'Failed' ? <AlertTriangle size={10} /> : <CheckCircle2 size={10} />}
-                            <span>Actual Result Analysis</span>
+                        <div className={`rounded-md p-3 border ${c.status === 'Failed' ? 'bg-red-500/5 border-red-500/20' : 'bg-emerald-500/5 border-emerald-500/20'}`}>
+                          <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest mb-2 ${c.status === 'Failed' ? 'text-red-400' : 'text-emerald-400'}`}>
+                            {c.status === 'Failed' ? <AlertTriangle size={12} /> : <CheckCircle2 size={12} />}
+                            <span>Execution Result</span>
                           </div>
-                          <div className="text-[10px] text-white/80 leading-relaxed pl-3 border-l border-current opacity-70 font-medium">
+                          <div className="text-xs text-white/80 leading-relaxed pl-1">
                             {c.actualResult}
                           </div>
-                          {c.status === 'Failed' && (
-                            <div className="mt-1 pl-3 text-[9px] text-red-400/60 break-all bg-red-500/5 p-1.5 rounded-sm border border-red-500/10">
-                              DEBUG_LOG: {c.actualResult.includes(':') ? c.actualResult.split(':').pop()?.trim() : 'Unexpected interruption in execution flow.'}
-                            </div>
-                          )}
                         </div>
                       )}
 
-                      {/* Visual Evidence Gallery */}
+                      {/* Evidence Button */}
                       {c.screenshots && c.screenshots.length > 0 && (
-                        <div className="mt-2">
-                          <button
-                            onClick={(e) => toggleEvidence(c.id, e)}
-                            className="flex items-center gap-2 text-[9px] font-black text-white/40 hover:text-white transition-colors uppercase tracking-widest"
-                          >
-                            <Image size={12} />
-                            {expandedEvidence.has(c.id) ? 'Hide Visual Evidence' : `View Visual Evidence (${c.screenshots.length} Steps)`}
-                          </button>
+                        <button
+                          onClick={(e) => toggleEvidence(c.id, e)}
+                          className="flex items-center gap-2 text-[10px] font-bold text-white/40 hover:text-purple-400 transition-colors uppercase tracking-widest mt-2"
+                        >
+                          <Image size={14} />
+                          {expandedEvidence.has(c.id) ? 'Hide Evidence Gallery' : `View ${c.screenshots.length} Screenshots`}
+                        </button>
+                      )}
 
-                          {expandedEvidence.has(c.id) && (
-                            <div className="relative group/gallery mt-3">
-                              {/* Left Control */}
-                              <button
-                                onClick={() => scrollEvidence(c.id, 'left')}
-                                className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-12 bg-black/60 backdrop-blur-md border border-white/10 text-white flex items-center justify-center opacity-0 group-hover/gallery:opacity-100 transition-opacity hover:bg-black/80 rounded-r-md"
-                              >
-                                <ChevronLeft size={20} />
-                              </button>
-
-                              <div
-                                id={`scroll-evidence-${c.id}`}
-                                className="flex gap-3 overflow-x-auto pb-4 custom-scrollbar animate-in fade-in slide-in-from-top-2 duration-300 max-w-full scroll-smooth"
-                              >
-                                {c.screenshots.map((shot, sIdx) => (
-                                  <div key={sIdx} className="flex-shrink-0 flex flex-col gap-1.5">
-                                    <div
-                                      onClick={() => setSelectedImage(shot.base64)}
-                                      className={`relative w-48 aspect-video rounded-sm overflow-hidden border-2 transition-all hover:scale-105 cursor-zoom-in group/img ${shot.status === 'failed' ? 'border-red-500 shadow-lg shadow-red-500/20' : 'border-white/10 hover:border-white/20'}`}
-                                    >
-                                      <img src={shot.base64} alt={`Step ${shot.stepIndex + 1}`} className="w-full h-full object-cover" />
-                                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-                                        <Eye size={20} className="text-white" />
-                                      </div>
-                                      <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 bg-black/80 backdrop-blur-md rounded-[2px] text-[8px] font-bold text-white/80 border border-white/10">
-                                        STEP {shot.stepIndex + 1}
-                                      </div>
-                                      {shot.status === 'failed' && (
-                                        <div className="absolute inset-0 bg-red-500/20 flex items-center justify-center">
-                                          <AlertTriangle size={24} className="text-red-500 drop-shadow-lg" />
-                                        </div>
-                                      )}
-                                    </div>
-                                    <div className={`text-[8px] font-bold uppercase tracking-wider text-center ${shot.status === 'failed' ? 'text-red-500' : 'text-white/30'}`}>
-                                      {shot.status === 'failed' ? 'CRITICAL FAILURE' : `Action Completed`}
-                                    </div>
-                                  </div>
-                                ))}
+                      {/* Gallery */}
+                      {expandedEvidence.has(c.id) && c.screenshots && (
+                        <div className="relative group/gallery mt-3 p-3 bg-black/40 rounded-lg border border-white/5">
+                          {/* ... (Keep Gallery Logic Logic mostly same but clearer) ... */}
+                          <div id={`scroll-evidence-${c.id}`} className="flex gap-3 overflow-x-auto custom-scrollbar scroll-smooth">
+                            {c.screenshots.map((shot, sIdx) => (
+                              <div key={sIdx} onClick={() => setSelectedImage(shot.base64)} className="relative group/img cursor-zoom-in shrink-0">
+                                <div className={`w-32 aspect-video rounded overflow-hidden border ${shot.status === 'failed' ? 'border-red-500/50' : 'border-white/10 group-hover/img:border-white/30'} transition-all`}>
+                                  <img src={shot.base64} className="w-full h-full object-cover" />
+                                </div>
+                                {shot.status === 'failed' && <div className="absolute top-1 right-1 text-red-500"><AlertTriangle size={12} fill="currentColor" /></div>}
                               </div>
-
-                              {/* Right Control */}
-                              <button
-                                onClick={() => scrollEvidence(c.id, 'right')}
-                                className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-12 bg-black/60 backdrop-blur-md border border-white/10 text-white flex items-center justify-center opacity-0 group-hover/gallery:opacity-100 transition-opacity hover:bg-black/80 rounded-l-md"
-                              >
-                                <ChevronRight size={20} />
-                              </button>
-                            </div>
-                          )}
+                            ))}
+                          </div>
                         </div>
                       )}
+
                     </div>
                   )}
 
+                  {/* Collapsed Preview */}
                   {!expandedSteps.has(c.id) && (
-                    <div className="text-[10px] text-white/20 truncate max-w-[120px] italic pl-6">
-                      {c.steps?.[0] ? `1. ${c.steps[0]}...` : 'No sequence'}
+                    <div className="text-xs text-white/20 italic pl-1 truncate max-w-[200px]">
+                      {c.steps?.[0] ? `${c.steps[0]}...` : ''}
                     </div>
                   )}
                 </div>
               </td>
 
-              <td className="px-4 py-4 align-top">
-                <Badge variant={c.priority}>{c.priority}</Badge>
+              {/* Priority */}
+              <td className="px-6 py-6 align-middle text-center">
+                <Badge variant={c.priority} className="scale-110 shadow-sm">{c.priority}</Badge>
               </td>
-              <td className="px-4 py-4 align-top text-center">
-                {c.hasAutomation && (
-                  executingId === c.id || (executingId === 'bulk' && selectedIds.has(c.id)) ? (
-                    <RefreshCcw size={14} className="animate-spin text-blue-500 m-auto" />
-                  ) : (
-                    <button
-                      onClick={() => onRun(c)}
-                      className="p-1.5 hover:bg-emerald-500/20 hover:text-emerald-400 text-white/20 rounded transition-all m-auto"
-                      title="Run Automation"
-                    >
-                      <Play size={14} fill="currentColor" />
-                    </button>
-                  )
+
+              {/* Auto */}
+              <td className="px-6 py-6 align-middle text-center">
+                {c.hasAutomation ? (
+                  <div className={`inline-flex p-2 rounded-full ${executingId === c.id ? 'bg-blue-500/20 text-blue-400 animate-pulse' : 'bg-white/5 text-white/40 group-hover:text-blue-400 group-hover:bg-blue-500/10'} transition-all cursor-pointer`} onClick={() => !executingId && onRun(c)}>
+                    {executingId === c.id ? <RefreshCcw size={16} className="animate-spin" /> : <Play size={16} fill="currentColor" />}
+                  </div>
+                ) : (
+                  <div className="w-8 h-8 mx-auto rounded-full bg-white/[0.02] flex items-center justify-center opacity-20">
+                    <div className="w-1.5 h-1.5 rounded-full bg-white/20"></div>
+                  </div>
                 )}
               </td>
-              <td className="px-4 py-4 align-top text-center">
-                <Badge variant={c.status}>{c.status}</Badge>
+
+              {/* Status */}
+              <td className="px-6 py-6 align-middle text-center">
+                <Badge variant={c.status} className="scale-110 shadow-sm">{c.status}</Badge>
               </td>
-              <td className="px-4 py-4 align-top border-l border-white/5">
+
+              {/* Audit */}
+              <td className="px-6 py-6 align-middle">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden shrink-0 shadow-md">
-                    {c.lastUpdatedByPhoto ? (
-                      <img src={c.lastUpdatedByPhoto} alt="User" className="w-full h-full object-cover" />
-                    ) : (
-                      <User size={14} className="text-white/40" />
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-white/5 to-white/10 p-[1px] shadow-inner">
+                    <div className="w-full h-full rounded-full overflow-hidden bg-black/50 flex items-center justify-center">
+                      {c.lastUpdatedByPhoto ? <img src={c.lastUpdatedByPhoto} className="w-full h-full object-cover" /> : <User size={14} className="text-white/30" />}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium text-white/90">{c.lastUpdatedByName || 'System'}</div>
+                    <div className="text-[10px] text-white/40 font-mono mt-0.5">
+                      {c.timestamp ? new Date(c.timestamp).toLocaleDateString('en-GB') : '-'}
+                    </div>
+                  </div>
+                </div>
+              </td>
+
+              {/* Actions */}
+              <td className="px-6 py-6 align-middle text-center">
+                <div className="flex flex-col gap-2 items-center">
+                  {!readOnly && (
+                    <div className="flex items-center bg-white/5 rounded-lg p-1 border border-white/5 shadow-sm">
+                      <button onClick={() => onStatusUpdate(c.id, 'Passed')} className="w-7 h-7 flex items-center justify-center rounded hover:bg-emerald-500 hover:text-white text-white/30 transition-all"><CheckCircle2 size={16} /></button>
+                      <div className="w-px h-3 bg-white/10 mx-0.5"></div>
+                      <button onClick={() => onStatusUpdate(c.id, 'Failed')} className="w-7 h-7 flex items-center justify-center rounded hover:bg-red-500 hover:text-white text-white/30 transition-all"><XCircle size={16} /></button>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => onMessage(c)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-blue-500/20 hover:text-blue-400 text-white/50 transition-all relative">
+                      <MessageSquare size={14} />
+                      {c.commentCount && c.commentCount > (readStatus[c.id] || 0) ? <span className="absolute top-0 right-0 w-2 h-2 rounded-full bg-blue-500 border border-black"></span> : null}
+                    </button>
+                    {!readOnly && (
+                      <>
+                        <button onClick={() => onEdit(c)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-white/10 hover:text-white text-white/50 transition-all"><Edit3 size={14} /></button>
+                        <button onClick={() => onDelete(c.id)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-red-500/20 hover:text-red-400 text-white/50 transition-all"><Trash2 size={14} /></button>
+                      </>
                     )}
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold text-white/90 leading-tight">
-                      {c.lastUpdatedByName || 'System'}
-                    </span>
-                    <span className="text-[10px] text-white/50 tracking-tight">
-                      {c.timestamp ? new Date(c.timestamp).toLocaleString('en-GB', {
-                        day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
-                      }).replace(',', '') : '-'}
-                    </span>
-                  </div>
                 </div>
               </td>
-              <td className="pl-4 pr-10 py-4 align-top text-center">
-                <div className="flex items-center justify-center gap-2">
-                  {!readOnly && (
-                    <>
-                      <button
-                        onClick={() => onStatusUpdate(c.id, 'Passed')}
-                        className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/50 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all"
-                        title="Mark Passed"
-                      >
-                        <CheckCircle2 size={16} />
-                      </button>
-                      <button
-                        onClick={() => onStatusUpdate(c.id, 'Failed')}
-                        className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/50 hover:text-red-400 hover:bg-red-500/10 transition-all"
-                        title="Mark Failed"
-                      >
-                        <XCircle size={16} />
-                      </button>
-                      <div className="w-px h-4 bg-white/5 mx-1"></div>
-                    </>
-                  )}
 
-                  <button
-                    onClick={() => onMessage(c)}
-                    className="relative flex items-center justify-center w-8 h-8 rounded-full border border-white/5 bg-white/[0.02] text-white/60 hover:text-blue-400 hover:bg-blue-500/10 hover:border-blue-500/20 transition-all shadow-sm"
-                    title="Comments"
-                  >
-                    <MessageSquare size={14} />
-                    {(() => {
-                      const total = c.commentCount || 0;
-                      const read = readStatus[c.id] || 0;
-                      const unread = total - read;
-
-                      return unread > 0 ? (
-                        <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-[8px] font-bold px-1 rounded-full min-w-[14px] h-[14px] flex items-center justify-center border border-[#050505] shadow-sm">
-                          {unread}
-                        </span>
-                      ) : null;
-                    })()}
-                  </button>
-
-                  {!readOnly && (
-                    <>
-                      <button
-                        onClick={() => onEdit(c)}
-                        className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/60 hover:text-white transition-all"
-                      >
-                        <Edit3 size={14} />
-                      </button>
-
-                      <button
-                        onClick={() => onDelete(c.id)}
-                        className="flex items-center justify-center w-7 h-7 rounded border border-transparent text-white/50 hover:text-red-500 hover:border-red-500/20 hover:bg-red-500/5 transition-all"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </>
-                  )}
-                </div>
-              </td>
             </tr>
           )) : (
             <tr>
-              <td colSpan={8} className="px-4 py-24 text-center">
-                <div className="flex flex-col items-center gap-3 opacity-20">
-                  <Square size={48} strokeWidth={1} />
-                  <span className="text-xs uppercase tracking-widest font-bold">
-                    {activeProjectId ? "No Records Found" : "Select or Create a Scope"}
-                  </span>
+              <td colSpan={8} className="px-6 py-32 text-center">
+                <div className="flex flex-col items-center gap-4">
+                  <div className="flex flex-col items-center gap-4 text-white/30">
+                    <Square size={64} strokeWidth={0.5} />
+                    <span className="text-sm uppercase tracking-[0.2em] font-light">No Test Cases Found</span>
+                  </div>
+                  {onCreate && (
+                    <button
+                      onClick={onCreate}
+                      className="mt-4 px-6 py-2 border border-white/20 hover:bg-white hover:text-black hover:border-white rounded-sm text-xs font-bold uppercase tracking-widest text-white/60 transition-all pointer-events-auto"
+                    >
+                      + Create First Case
+                    </button>
+                  )}
                 </div>
               </td>
             </tr>

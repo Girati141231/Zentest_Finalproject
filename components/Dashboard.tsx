@@ -20,6 +20,13 @@ const COLORS = {
     cardBg: '#0a0a0a'
 };
 
+const PRIORITY_COLORS = {
+    Critical: '#ef4444', // red-500
+    High: '#f97316',     // orange-500
+    Medium: '#eab308',   // yellow-500
+    Low: '#3b82f6'       // blue-500
+};
+
 const Dashboard: React.FC<DashboardProps> = ({ testCases, apiTestCases }) => {
 
     const stats = useMemo(() => {
@@ -63,9 +70,9 @@ const Dashboard: React.FC<DashboardProps> = ({ testCases, apiTestCases }) => {
                     </div>
                     <span className="text-white/40 text-sm font-bold uppercase tracking-widest group-hover:text-indigo-400 transition-colors">Total Cases</span>
                     <span className="text-4xl font-black text-white group-hover:scale-110 origin-left transition-transform duration-300">{stats.total}</span>
-                    <div className="flex gap-2 text-xs text-white/40 mt-auto">
-                        <span>Func: {testCases.length}</span>
-                        <span>API: {apiTestCases.length}</span>
+                    <div className="flex gap-3 text-xs font-medium text-white/50 mt-auto">
+                        <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>Func: <span className="text-white">{testCases.length}</span></span>
+                        <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>API: <span className="text-white">{apiTestCases.length}</span></span>
                     </div>
                 </div>
 
@@ -102,28 +109,34 @@ const Dashboard: React.FC<DashboardProps> = ({ testCases, apiTestCases }) => {
                 <div className="bg-[#0a0a0a] border border-white/5 p-4 rounded-sm shadow-lg flex flex-col animate-in fade-in slide-in-from-bottom-8 duration-700 delay-500 hover:border-white/10 transition-colors">
                     <h3 className="text-xs font-bold uppercase tracking-widest text-white/60 mb-4">Status Distribution</h3>
                     <div className="flex-1 w-full min-h-0">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={statusData}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={60}
-                                    outerRadius={80}
-                                    paddingAngle={5}
-                                    dataKey="value"
-                                >
-                                    {statusData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[entry.name as keyof typeof COLORS]} stroke="none" />
-                                    ))}
-                                </Pie>
-                                <Tooltip
-                                    contentStyle={{ backgroundColor: '#000', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '4px' }}
-                                    itemStyle={{ color: '#fff', fontSize: '12px' }}
-                                />
-                                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', opacity: 0.7 }} />
-                            </PieChart>
-                        </ResponsiveContainer>
+                        <div className="relative w-full h-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={statusData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={60}
+                                        outerRadius={80}
+                                        paddingAngle={5}
+                                        dataKey="value"
+                                    >
+                                        {statusData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[entry.name as keyof typeof COLORS]} stroke="none" />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip
+                                        contentStyle={{ backgroundColor: '#000', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '4px' }}
+                                        itemStyle={{ color: '#fff', fontSize: '12px' }}
+                                    />
+                                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', opacity: 0.7 }} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                <span className="text-3xl font-black text-white">{stats.total}</span>
+                                <span className="text-[10px] uppercase tracking-widest text-white/40 font-bold">Total</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -141,7 +154,11 @@ const Dashboard: React.FC<DashboardProps> = ({ testCases, apiTestCases }) => {
                                     contentStyle={{ backgroundColor: '#000', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '4px' }}
                                     itemStyle={{ color: '#fff', fontSize: '12px' }}
                                 />
-                                <Bar dataKey="count" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20} />
+                                <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={20}>
+                                    {priorityData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={PRIORITY_COLORS[entry.name as keyof typeof PRIORITY_COLORS]} />
+                                    ))}
+                                </Bar>
                             </BarChart>
                         </ResponsiveContainer>
                     </div>

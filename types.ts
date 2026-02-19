@@ -20,6 +20,8 @@ export interface ProjectMember {
   photoURL: string;
   role: ProjectRole;
   joinedAt: number;
+  lastSeen?: number;
+  isOnline?: boolean;
 }
 
 export interface Module {
@@ -111,4 +113,17 @@ export interface User {
   photoURL?: string;
   tier?: 'free' | 'pro';
   validUntil?: any;
+}
+
+export interface ExecutionHistory {
+  id: string;
+  testCaseId: string;
+  projectId: string;
+  type: 'functional' | 'api';
+  status: 'Passed' | 'Failed';
+  duration: number; // in ms
+  timestamp: number;
+  executedBy: string; // uid
+  executedByName: string;
+  logs?: string[]; // Simplified logs to string array or keep LogEntry[]
 }

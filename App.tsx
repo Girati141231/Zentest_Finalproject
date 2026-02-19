@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
-  Play, Search, LogIn, CheckSquare, Eye, AlertCircle, Download, Activity, Globe, Trash2, LayoutDashboard, ChevronRight
+  Play, Search, LogIn, CheckSquare, Eye, EyeOff, AlertCircle, Download, Activity, Globe, Trash2, LayoutDashboard, ChevronRight
 } from 'lucide-react';
 import {
   onAuthStateChanged,
@@ -18,8 +18,8 @@ import {
 
 // Core
 import { auth, db, appId, isConfigured } from './firebase';
-import { Project, Module, TestCase, APITestCase, LogEntry, ModalMode, STATUSES, Comment, Status } from './types';
-import { ProjectService, TestCaseService, APITestCaseService, ModuleService, CommentService, UserReadStatusService } from './services/db';
+import { Project, Module, TestCase, APITestCase, LogEntry, ModalMode, STATUSES, Comment, Status, ProjectMember } from './types';
+import { ProjectService, TestCaseService, APITestCaseService, ModuleService, CommentService, UserReadStatusService, ExecutionHistoryService } from './services/db';
 
 // Components
 import Sidebar from './components/Sidebar';
@@ -87,6 +87,7 @@ export default function App() {
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<'functional' | 'api' | 'dashboard'>('dashboard');
+  const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
 
   const [isBooting, setIsBooting] = useState(false); // Transition state
 
@@ -110,6 +111,7 @@ export default function App() {
   const [executingId, setExecutingId] = useState<string | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+  const [isHeadless, setIsHeadless] = useState(false);
 
   // UseEffects for Comments (Specific to UI Drawer)
   useEffect(() => {
@@ -165,6 +167,30 @@ export default function App() {
       }
     });
   };
+
+  // --- Presence Logic ---
+  useEffect(() => {
+    if (!activeProjectId || !user) return;
+
+    // 1. Subscribe to members
+    const unsubscribe = ProjectService.getMembers(activeProjectId, (members) => {
+      setProjectMembers(members);
+    });
+
+    // 2. Initial presence update
+    const updatePresence = () => {
+      ProjectService.updatePresence(activeProjectId, user.uid);
+    };
+    updatePresence();
+
+    // 3. Heartbeat every 60s
+    const interval = setInterval(updatePresence, 60000);
+
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
+  }, [activeProjectId, user]);
 
   // --- Actions ---
 
@@ -243,7 +269,7 @@ export default function App() {
       const response = await fetch('http://localhost:3002/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ steps })
+        body: JSON.stringify({ steps, headless: isHeadless })
       });
 
       const result = await response.json();
@@ -277,6 +303,17 @@ export default function App() {
           updateStatus(testCase.id, 'Passed', 'functional');
         } else {
           await TestCaseService.save(finalData, false, user);
+          await ExecutionHistoryService.add({
+            testCaseId: testCase.id,
+            projectId: activeProjectId || '',
+            type: 'functional',
+            status: 'Passed',
+            duration: 0, // We don't track duration yet in functional, maybe 0 or add it later
+            timestamp: Date.now(),
+            executedBy: user.uid,
+            executedByName: user.displayName || 'Unknown',
+            logs: result.logs || []
+          });
         }
         if (!isBulk) setExecutingId(null);
         return result; // RETURN FULL RESULT
@@ -295,6 +332,17 @@ export default function App() {
           updateStatus(testCase.id, 'Failed', 'functional');
         } else {
           await TestCaseService.save(failedData, false, user);
+          await ExecutionHistoryService.add({
+            testCaseId: testCase.id,
+            projectId: activeProjectId || '',
+            type: 'functional',
+            status: 'Failed',
+            duration: 0,
+            timestamp: Date.now(),
+            executedBy: user.uid,
+            executedByName: user.displayName || 'Unknown',
+            logs: result.logs || [result.message]
+          });
         }
         if (!isBulk) setExecutingId(null);
         return result; // RETURN FULL RESULT
@@ -314,8 +362,95 @@ export default function App() {
     }
   };
 
+  const handleRunApiTestCase = async (testCase: APITestCase, isBulk = false) => {
+    setExecutingId(testCase.id);
+    if (!isBulk) {
+      setLogs([]);
+      setIsTerminalOpen(true);
+    }
+
+    log(`Initializing API Execution for: ${testCase.title}...`);
+    log(`Method: ${testCase.method} | URL: ${testCase.url}`);
+
+    try {
+      const response = await fetch('http://localhost:3002/run-api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          method: testCase.method,
+          url: testCase.url,
+          headers: testCase.headers?.reduce((acc: any, h: any) => ({ ...acc, [h.key]: h.value }), {}),
+          body: testCase.body
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) throw new Error(result.error || result.message || 'Unknown Server Error');
+
+      const isSuccess = result.status >= 200 && result.status < 300;
+      log(`Response Status: ${result.status} ${result.statusText}`, isSuccess ? 'success' : 'error');
+      log(`Duration: ${result.duration}ms`);
+
+      if (result.data) {
+        log(`Response Body: ${typeof result.data === 'object' ? JSON.stringify(result.data, null, 2) : result.data}`);
+      }
+
+      // Check Expectation
+      const expected = parseInt(String(testCase.expectedStatus)) || 200;
+      const passed = result.status === expected;
+
+      if (!passed) {
+        log(`Make sure to match expected status: ${expected}`, 'error');
+      }
+
+      const status = passed ? 'Passed' : 'Failed';
+      await updateStatus(testCase.id, status, 'api');
+
+      // Save History
+      if (user.uid !== 'demo-user') {
+        const historyEntry: any = {
+          testCaseId: testCase.id,
+          projectId: activeProjectId || '',
+          type: 'api',
+          status: status,
+          duration: result.duration || 0,
+          timestamp: Date.now(),
+          executedBy: user.uid,
+          executedByName: user.displayName || 'Unknown',
+          logs: [`Status: ${result.status}`, `Time: ${result.duration}ms`]
+        };
+        await ExecutionHistoryService.add(historyEntry);
+      }
+
+      log(`>>> API TEST ${status.toUpperCase()}`, passed ? 'success' : 'error');
+
+      if (!isBulk) setExecutingId(null);
+      return true;
+    } catch (error: any) {
+      log(`Execution Error: ${error.message}`, 'error');
+
+      const isNetworkError = error.message.toLowerCase().includes('fetch') ||
+        error.message.toLowerCase().includes('network') ||
+        error.message.toLowerCase().includes('failed');
+
+      if (isNetworkError) {
+        log(`Suggestion: Check if automation-server is running on port 3002`, 'error');
+      }
+      if (!isBulk) setExecutingId(null);
+      return false;
+    }
+  };
+
   const handleBulkRun = async () => {
-    const targetCases = testCases.filter(c => selectedIds.has(c.id) && c.hasAutomation);
+    let targetCases: any[] = [];
+
+    if (viewMode === 'functional') {
+      targetCases = testCases.filter(c => selectedIds.has(c.id) && c.hasAutomation);
+    } else if (viewMode === 'api') {
+      targetCases = apiTestCases.filter(c => selectedIds.has(c.id));
+    }
+
     if (targetCases.length === 0 || executingId) return;
 
     setExecutingId('bulk');
@@ -329,7 +464,13 @@ export default function App() {
       log(`--------------------------------------------------`);
       log(`TRIGGERING: ${tc.id} - ${tc.title}`, 'info');
 
-      const success = await handleRunAutomation(tc, true);
+      let success = false;
+      if (viewMode === 'functional') {
+        success = await handleRunAutomation(tc, true);
+      } else {
+        success = await handleRunApiTestCase(tc, true);
+      }
+
       if (success) passed++;
 
       // Small cooling delay between sessions
@@ -459,6 +600,7 @@ export default function App() {
             }
           }}
           onLogout={handleAppLogout}
+          onLicense={() => setIsLicenseModalOpen(true)}
         />
         {confirmConfig && (
           <ConfirmModal
@@ -467,6 +609,13 @@ export default function App() {
             onConfirm={confirmConfig.onConfirm}
             title={confirmConfig.title}
             message={confirmConfig.message}
+          />
+        )}
+        {isLicenseModalOpen && (
+          <LicenseRedemption
+            user={user}
+            userDoc={userDoc}
+            onClose={() => setIsLicenseModalOpen(false)}
           />
         )}
       </>
@@ -496,7 +645,6 @@ export default function App() {
         }}
         onJoinProject={() => setProjectModalMode('join')}
         onSettings={() => setProjectModalMode('edit')}
-        onLicense={() => setIsLicenseModalOpen(true)}
       />
 
       <main className="flex-1 flex flex-col transition-all duration-300">
@@ -513,6 +661,37 @@ export default function App() {
             {user.uid === 'demo-user' && <span className="bg-amber-500/20 text-amber-500 text-[9px] px-2 py-0.5 rounded-full border border-amber-500/30 font-bold uppercase tracking-widest">Preview Mode</span>}
           </div>
           <div className="flex items-center gap-3">
+            {/* Presence Pile */}
+            <div className="flex -space-x-2 mr-4 border-r border-white/10 pr-4">
+              {projectMembers.filter(m => m.lastSeen && Date.now() - m.lastSeen < 120000).slice(0, 5).map((member) => (
+                <div key={member.uid} className="relative group cursor-pointer">
+                  <div className="w-8 h-8 rounded-full border-2 border-[#050505] overflow-hidden bg-zinc-800">
+                    {member.photoURL ? (
+                      <img src={member.photoURL} alt={member.displayName} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-white/50">
+                        {member.displayName?.charAt(0) || '?'}
+                      </div>
+                    )}
+                  </div>
+                  <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-[#050505]" />
+
+                  {/* Tooltip */}
+                  <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-black border border-white/10 px-2 py-1 rounded text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                    <span className="font-bold text-white">{member.displayName}</span>
+                    <span className="text-white/50 ml-1">
+                      {Math.floor((Date.now() - (member.lastSeen || 0)) / 60000)}m ago
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {projectMembers.filter(m => m.lastSeen && Date.now() - m.lastSeen < 120000).length > 5 && (
+                <div className="w-8 h-8 rounded-full border-2 border-[#050505] bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white/50">
+                  +{projectMembers.filter(m => m.lastSeen && Date.now() - m.lastSeen < 120000).length - 5}
+                </div>
+              )}
+            </div>
+
             <div className="bg-white/5 p-1 rounded-sm flex items-center border border-white/10 mr-4">
               <button
                 onClick={() => setViewMode('dashboard')}
@@ -563,6 +742,17 @@ export default function App() {
                   </div>
                 )}
               </div>
+            )}
+
+            {viewMode === 'functional' && (
+              <button
+                onClick={() => setIsHeadless(!isHeadless)}
+                className={`h-8 px-3 rounded-sm text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 border border-white/10 ${isHeadless ? 'bg-purple-500/20 text-purple-400 border-purple-500/50' : 'bg-white/5 text-white/40 hover:text-white'}`}
+                title="Toggle Headless Mode"
+              >
+                {isHeadless ? <EyeOff size={14} /> : <Eye size={14} />}
+                <span>{isHeadless ? 'HEADLESS' : 'HEADED'}</span>
+              </button>
             )}
 
             {/* Create New Button - Hidden for Viewers */}
@@ -712,6 +902,15 @@ export default function App() {
               onStatusUpdate={(id: string, s: any) => handleQuickStatusUpdate(id, s, 'functional')}
               onMessage={(tc: TestCase) => { setActiveCommentCase({ id: tc.id, title: tc.title, commentCount: tc.commentCount }); setIsCommentDrawerOpen(true); }}
               onDelete={(id: string) => deleteItems(new Set([id]), 'functional')}
+              onCreate={() => {
+                const isPro = userDoc?.tier === 'pro' && userDoc?.validUntil?.toMillis() > Date.now();
+                if (!isPro && testCases.length >= 2) {
+                  setQuotaMessage("You have reached the free limit of 2 Test Cases.");
+                  return;
+                }
+                setEditingCase(null);
+                setIsCaseModalOpen(true);
+              }}
             />
           ) : (
             <APITable
@@ -738,10 +937,19 @@ export default function App() {
                 }
                 setEditingAPICase(tc); setIsAPIModalOpen(true);
               }}
-              onRun={() => { }} // API run pending implementation or reuse handleRunAutomation? APITable has onRun.
+              onRun={handleRunApiTestCase}
               onStatusUpdate={(id: string, s: any) => handleQuickStatusUpdate(id, s, 'api')}
               onMessage={(tc: APITestCase) => { setActiveCommentCase({ id: tc.id, title: tc.title, commentCount: tc.commentCount }); setIsCommentDrawerOpen(true); }}
               onDelete={(id: string) => deleteItems(new Set([id]), 'api')}
+              onCreate={() => {
+                const isPro = userDoc?.tier === 'pro' && userDoc?.validUntil?.toMillis() > Date.now();
+                if (!isPro && apiTestCases.length >= 2) {
+                  setQuotaMessage("You have reached the free limit of 2 API Cases.");
+                  return;
+                }
+                setEditingAPICase(null);
+                setIsAPIModalOpen(true);
+              }}
             />
           )}
         </div>

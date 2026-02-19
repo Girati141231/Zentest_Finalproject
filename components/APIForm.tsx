@@ -91,8 +91,8 @@ const APIForm: React.FC<APIFormProps> = ({
                 </div>
 
                 <div className="space-y-1.5">
-                    <label className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Description</label>
-                    <input type="text" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="w-full bg-white/[0.03] border border-white/10 rounded-sm px-3 py-2 outline-none focus:border-white/20 transition-all text-xs text-white" placeholder="What does this endpoint do?" />
+                    <label className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Title</label>
+                    <input type="text" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="w-full bg-white/[0.03] border border-white/10 rounded-sm px-3 py-2 outline-none focus:border-white/20 transition-all text-xs text-white" placeholder="e.g. Get All Users" />
                 </div>
 
                 <div className="grid grid-cols-4 gap-4">
