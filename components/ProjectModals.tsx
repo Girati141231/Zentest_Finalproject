@@ -152,7 +152,17 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
                   onClick={() => document.getElementById('project-image-upload')?.click()}
                 >
                   {form.photoURL ? (
-                    <img src={form.photoURL} alt="Preview" className="w-full h-full object-cover" />
+                    <img
+                      src={form.photoURL}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        target.parentElement!.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white/40"><path d="M21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/><circle cx="9" cy="9" r="2"/><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/></svg>`;
+                      }}
+                    />
                   ) : (
                     <Upload size={14} className="text-white/40 group-hover:text-white transition-colors" />
                   )}
@@ -272,7 +282,17 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
                       <div key={member.uid} className="flex justify-between items-center p-2.5 bg-white/[0.02] border border-white/5 rounded-sm">
                         <div className="flex items-center gap-3">
                           {member.photoURL ? (
-                            <img src={member.photoURL} className="w-6 h-6 rounded-full" alt="avatar" referrerPolicy="no-referrer" />
+                            <img
+                              src={member.photoURL}
+                              className="w-6 h-6 rounded-full"
+                              alt="avatar"
+                              referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                target.parentElement!.innerHTML = `<div class="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-[10px] font-bold text-blue-400">${member.displayName?.[0] || '?'}</div>`;
+                              }}
+                            />
                           ) : (
                             <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-[10px] font-bold text-blue-400">
                               {member.displayName?.[0] || '?'}

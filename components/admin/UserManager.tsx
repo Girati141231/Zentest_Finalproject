@@ -117,7 +117,20 @@ export const UserManager: React.FC = () => {
                                         <div className="flex items-center gap-4">
                                             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-white/5 to-white/[0.08] p-[1px] shadow-inner shrink-0 overflow-hidden">
                                                 <div className="w-full h-full rounded-[11px] bg-black/40 flex items-center justify-center overflow-hidden">
-                                                    {user.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover" /> : <UserIcon size={16} className="text-white/20" />}
+                                                    {user.photoURL ? (
+                                                        <img
+                                                            src={user.photoURL}
+                                                            className="w-full h-full object-cover"
+                                                            referrerPolicy="no-referrer"
+                                                            onError={(e) => {
+                                                                const target = e.target as HTMLImageElement;
+                                                                target.style.display = 'none';
+                                                                target.parentElement!.innerHTML = `<div class="w-full h-full flex items-center justify-center font-bold text-blue-400 text-xs">${user.displayName?.[0] || '?'}</div>`;
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <UserIcon size={16} className="text-white/20" />
+                                                    )}
                                                 </div>
                                             </div>
                                             <div className="min-w-0">

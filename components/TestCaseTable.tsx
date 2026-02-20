@@ -219,7 +219,17 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
                                       className={`w-[220px] aspect-video rounded-xl border-2 overflow-hidden cursor-zoom-in transition-all shrink-0 bg-[#0A0A0A] shadow-lg snap-center ${isFailed ? 'border-red-500 ring-4 ring-red-500/30' : 'border-white/10 hover:border-blue-500/50'}`}
                                     >
                                       <div className="relative w-full h-full group/img">
-                                        <img src={s.base64} className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-105" alt={`Step ${si + 1}`} />
+                                        <img
+                                          src={s.base64}
+                                          className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-105"
+                                          alt={`Step ${si + 1}`}
+                                          referrerPolicy="no-referrer"
+                                          onError={(e) => {
+                                            const target = e.target as HTMLImageElement;
+                                            target.style.display = 'none';
+                                            target.parentElement!.innerHTML = `<div class="w-full h-full flex items-center justify-center bg-white/5"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white/10"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>`;
+                                          }}
+                                        />
 
                                         {/* Centered Error Message */}
                                         {isFailed && (
@@ -274,7 +284,16 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
                       <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-white/5 to-white/10 p-[1px] shadow-inner shrink-0">
                         <div className="w-full h-full rounded-full overflow-hidden bg-black/50 flex items-center justify-center">
                           {c.lastUpdatedByPhoto ? (
-                            <img src={c.lastUpdatedByPhoto} className="w-full h-full object-cover" />
+                            <img
+                              src={c.lastUpdatedByPhoto}
+                              className="w-full h-full object-cover"
+                              referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                target.parentElement!.innerHTML = `<div class="w-full h-full flex items-center justify-center font-bold text-blue-400 text-[10px]">${c.lastUpdatedByName?.[0] || '?'}</div>`;
+                              }}
+                            />
                           ) : (
                             <User size={14} className="text-white/30" />
                           )}
@@ -350,7 +369,12 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
 
       {selectedImage && (
         <div className="fixed inset-0 z-[9999] bg-black/95 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setSelectedImage(null)}>
-          <img src={selectedImage} className="max-w-full max-h-full object-contain rounded-lg shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10" alt="Preview" />
+          <img
+            src={selectedImage}
+            className="max-w-full max-h-full object-contain rounded-lg shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10"
+            alt="Preview"
+            referrerPolicy="no-referrer"
+          />
         </div>
       )}
     </div>

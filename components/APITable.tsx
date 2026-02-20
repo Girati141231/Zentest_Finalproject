@@ -183,7 +183,20 @@ const APITable: React.FC<APITableProps> = ({
                                 <div className="flex items-center gap-3">
                                     <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-white/5 to-white/10 p-[1px] shadow-inner">
                                         <div className="w-full h-full rounded-full overflow-hidden bg-black/50 flex items-center justify-center">
-                                            {c.lastUpdatedByPhoto ? <img src={c.lastUpdatedByPhoto} className="w-full h-full object-cover" /> : <User size={14} className="text-white/30" />}
+                                            {c.lastUpdatedByPhoto ? (
+                                                <img
+                                                    src={c.lastUpdatedByPhoto}
+                                                    className="w-full h-full object-cover"
+                                                    referrerPolicy="no-referrer"
+                                                    onError={(e) => {
+                                                        const target = e.target as HTMLImageElement;
+                                                        target.style.display = 'none';
+                                                        target.parentElement!.innerHTML = `<div class="w-full h-full flex items-center justify-center font-bold text-blue-400 text-[10px]">${c.lastUpdatedByName?.[0] || '?'}</div>`;
+                                                    }}
+                                                />
+                                            ) : (
+                                                <User size={14} className="text-white/30" />
+                                            )}
                                         </div>
                                     </div>
                                     <div>

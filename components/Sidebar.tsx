@@ -78,7 +78,17 @@ const Sidebar: React.FC<SidebarProps> = ({
               style={{ backgroundColor: `${p.color}20`, color: p.color, boxShadow: activeProjectId === p.id ? `0 0 10px ${p.color}40` : 'none' }}
             >
               {p.photoURL ? (
-                <img src={p.photoURL} alt={p.name} className="w-full h-full object-cover" />
+                <img
+                  src={p.photoURL}
+                  alt={p.name}
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    target.parentElement!.innerHTML = `<span class="font-bold text-[10px] text-white/50">${p.initial || p.name.charAt(0)}</span>`;
+                  }}
+                />
               ) : (
                 p.initial
               )}
@@ -158,17 +168,21 @@ const Sidebar: React.FC<SidebarProps> = ({
         </button>
 
         <div className={`flex items-center overflow-hidden transition-all duration-300 pt-2 border-t border-white/5 ${isExpanded ? 'gap-3 w-full' : 'justify-center w-full'}`}>
-          <div className="w-8 h-8 rounded-full border border-white/10 overflow-hidden bg-white/5 flex-shrink-0">
-            {user.photoURL && !imageError ? (
+          <div className="w-8 h-8 rounded-full border border-white/10 overflow-hidden bg-white/5 flex items-center justify-center flex-shrink-0">
+            {user.photoURL ? (
               <img
                 src={user.photoURL}
                 alt="Profile"
                 className="w-full h-full object-cover"
                 referrerPolicy="no-referrer"
-                onError={() => setImageError(true)}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  target.parentElement!.innerHTML = `<div class="w-full h-full flex items-center justify-center font-bold text-blue-400 text-[10px]">${user.displayName?.[0] || '?'}</div>`;
+                }}
               />
             ) : (
-              <User size={14} className="m-auto mt-2 text-white/50" />
+              <User size={14} className="text-white/30" />
             )}
           </div>
           {isExpanded && (

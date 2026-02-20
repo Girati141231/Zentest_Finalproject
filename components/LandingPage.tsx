@@ -44,12 +44,24 @@ const LandingPage: React.FC<LandingPageProps> = ({ user, onLogin, onDemo, onEnte
                                     <div className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">Pro License</div>
                                     <div className="text-sm font-medium text-white/90">{user.displayName || 'Tester'}</div>
                                 </div>
-                                <div className="relative group cursor-pointer">
-                                    <img
-                                        src={user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || 'Guest')}&background=random&color=fff`}
-                                        className="w-9 h-9 rounded-full border-2 border-white/10 group-hover:border-indigo-500 transition-colors"
-                                        alt="avatar"
-                                    />
+                                <div className="relative group cursor-pointer w-9 h-9">
+                                    {user.photoURL ? (
+                                        <img
+                                            src={user.photoURL}
+                                            className="w-full h-full rounded-full border-2 border-white/10 group-hover:border-indigo-500 transition-colors object-cover"
+                                            alt="avatar"
+                                            referrerPolicy="no-referrer"
+                                            onError={(e) => {
+                                                const target = e.target as HTMLImageElement;
+                                                target.style.display = 'none';
+                                                target.parentElement!.innerHTML = `<div class="w-full h-full flex items-center justify-center font-bold text-indigo-400 text-xs">${user.displayName?.[0] || '?'}</div>`;
+                                            }}
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full rounded-full border-2 border-white/10 group-hover:border-indigo-500 transition-colors bg-white/5 flex items-center justify-center font-bold text-indigo-400 text-xs">
+                                            {user.displayName?.[0] || '?'}
+                                        </div>
+                                    )}
                                     <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-[#020202] rounded-full"></div>
                                 </div>
                             </div>

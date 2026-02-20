@@ -85,7 +85,17 @@ const CommentsDrawer: React.FC<CommentsDrawerProps> = ({
                                 <div key={comment.id} className={`flex gap-3 ${isMe ? 'flex-row-reverse' : ''}`}>
                                     <div className="w-8 h-8 rounded-full bg-white/10 flex-shrink-0 overflow-hidden border border-white/5">
                                         {comment.userPhoto ? (
-                                            <img src={comment.userPhoto} alt={comment.userName} className="w-full h-full object-cover" />
+                                            <img
+                                                src={comment.userPhoto}
+                                                alt={comment.userName}
+                                                className="w-full h-full object-cover"
+                                                referrerPolicy="no-referrer"
+                                                onError={(e) => {
+                                                    const target = e.target as HTMLImageElement;
+                                                    target.style.display = 'none';
+                                                    target.parentElement!.innerHTML = `<div class="w-full h-full flex items-center justify-center text-[10px] font-bold text-white/50">${comment.userName.charAt(0)}</div>`;
+                                                }}
+                                            />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-white/50">
                                                 {comment.userName.charAt(0)}
