@@ -87,8 +87,8 @@ export const useProjects = (user: any) => {
 
     const handleJoin = async (code: string) => {
         if (!code || !user) return;
-        await ProjectService.join(code, user);
-        setActiveProjectId(code);
+        const joinedId = await ProjectService.join(code, user);
+        if (joinedId) setActiveProjectId(joinedId);
     };
 
     const handleDeleteProject = async (id: string, isOwner: boolean) => {

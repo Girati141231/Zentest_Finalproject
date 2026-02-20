@@ -9,6 +9,7 @@ export interface Project {
   owner?: string;
   photoURL?: string;
   role?: ProjectRole; // Role of the current user in this project
+  inviteCode?: string; // Standardized invitation code
 }
 
 export type ProjectRole = 'owner' | 'editor' | 'viewer';
@@ -90,6 +91,7 @@ export interface Comment {
   userName: string;
   userPhoto?: string;
   content: string;
+  attachments?: { type: 'image' | 'file'; name: string; url: string; size?: number }[];
   timestamp: number;
 }
 
@@ -130,4 +132,22 @@ export interface ExecutionHistory {
   executedBy: string; // uid
   executedByName: string;
   logs?: string[]; // Simplified logs to string array or keep LogEntry[]
+}
+
+export type NotificationType = 'comment' | 'status' | 'request' | 'system';
+
+export interface Notification {
+  id: string;
+  userId: string;
+  projectId?: string;
+  title: string;
+  message: string;
+  type: NotificationType;
+  link?: {
+    viewMode: 'functional' | 'api' | 'dashboard';
+    caseId?: string;
+  };
+  isRead: boolean;
+  timestamp: number;
+  userPhoto?: string;
 }

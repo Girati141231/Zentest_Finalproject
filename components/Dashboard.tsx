@@ -68,7 +68,7 @@ const Dashboard: React.FC<DashboardProps> = ({ testCases, apiTestCases }) => {
                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                         <Activity size={64} color="white" />
                     </div>
-                    <span className="text-white/40 text-sm font-bold uppercase tracking-widest group-hover:text-indigo-400 transition-colors">Total Cases</span>
+                    <span className="text-white/40 text-sm font-bold uppercase tracking-widest group-hover:text-indigo-400 transition-colors">Total Scenarios</span>
                     <span className="text-4xl font-black text-white group-hover:scale-110 origin-left transition-transform duration-300">{stats.total}</span>
                     <div className="flex gap-3 text-xs font-medium text-white/50 mt-auto">
                         <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>Func: <span className="text-white">{testCases.length}</span></span>
@@ -89,7 +89,7 @@ const Dashboard: React.FC<DashboardProps> = ({ testCases, apiTestCases }) => {
                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                         <AlertCircle size={64} color={COLORS.Failed} />
                     </div>
-                    <span className="text-white/40 text-sm font-bold uppercase tracking-widest group-hover:text-red-400 transition-colors">Failure Rate</span>
+                    <span className="text-white/40 text-sm font-bold uppercase tracking-widest group-hover:text-red-400 transition-colors">Failures</span>
                     <span className="text-4xl font-black text-red-500 group-hover:scale-110 origin-left transition-transform duration-300">{stats.total ? Math.round((stats.failed / stats.total) * 100) : 0}%</span>
                     <span className="text-xs text-red-500/50 mt-auto">{stats.failed} Failed</span>
                 </div>
