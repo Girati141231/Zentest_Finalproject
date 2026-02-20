@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  Square, CheckSquare, ListOrdered, RefreshCcw, Play, Edit3, Trash2, CheckCircle2, XCircle, MessageSquare, User, ChevronDown, ChevronRight, Target, Image, AlertTriangle, Eye, ChevronLeft
+  Square, CheckSquare, ListOrdered, RefreshCcw, Play, Edit3, Trash2, CheckCircle2, XCircle, MessageSquare, User, ChevronRight, Target, Image, AlertTriangle, Eye, Clock, ChevronLeft, Activity
 } from 'lucide-react';
 import Badge from './ui/Badge';
 import { TestCase } from '../types';
@@ -26,7 +26,6 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
   cases,
   selectedIds,
   executingId,
-  activeProjectId,
   onToggleSelect,
   onToggleSelectAll,
   onRun,
@@ -39,16 +38,7 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
   onCreate
 }) => {
   const [expandedSteps, setExpandedSteps] = React.useState<Set<string>>(new Set());
-  const [expandedEvidence, setExpandedEvidence] = React.useState<Set<string>>(new Set());
   const [selectedImage, setSelectedImage] = React.useState<string | null>(null);
-
-  const scrollEvidence = (id: string, direction: 'left' | 'right') => {
-    const el = document.getElementById(`scroll-evidence-${id}`);
-    if (el) {
-      const scrollAmount = 300;
-      el.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
-    }
-  };
 
   const toggleSteps = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -57,271 +47,310 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
     setExpandedSteps(next);
   };
 
-  const toggleEvidence = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const next = new Set(expandedEvidence);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    setExpandedEvidence(next);
+  const scrollGallery = (id: string, direction: 'left' | 'right') => {
+    const el = document.getElementById(`gallery-${id}`);
+    if (el) {
+      const cardWidth = 232; // 220px (card) + 12px (gap-3)
+      if (direction === 'left') {
+        el.scrollBy({ left: -cardWidth, behavior: 'smooth' });
+      } else {
+        el.scrollBy({ left: cardWidth, behavior: 'smooth' });
+      }
+    }
+  };
+
+  const formatExpected = (text: string) => {
+    if (!text) return null;
+    const keywords = ['Functional:', 'UI/UX:', 'Performance:'];
+    const parts = text.split(/(Functional:|UI\/UX:|Performance:)/g).filter(p => p.trim());
+
+    if (parts.length <= 1) return <p className="text-xs text-blue-100/50 leading-relaxed font-medium">{text}</p>;
+
+    const elements = [];
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i].trim();
+      if (keywords.includes(part)) {
+        const nextContent = parts[i + 1]?.trim() || '';
+        elements.push(
+          <div key={i} className="mb-4 last:mb-0">
+            <div className="text-white font-black text-[11px] uppercase tracking-[0.15em] mb-1.5 flex items-center gap-2 drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">
+              <div className="w-1 h-3 bg-blue-500 rounded-full" />
+              {part}
+            </div>
+            <div className="text-[13px] text-blue-100/60 leading-relaxed font-medium pl-3 border-l border-white/10 ml-0.5 whitespace-pre-wrap">{nextContent}</div>
+          </div>
+        );
+        i++;
+      } else if (i === 0) {
+        elements.push(<p key={i} className="text-[13px] text-white/40 leading-relaxed font-medium mb-4 italic pl-3 border-l border-white/5">{part}</p>);
+      }
+    }
+    return <div className="space-y-1">{elements}</div>;
   };
 
   return (
-    <div className="border border-white/10 rounded-sm overflow-x-auto bg-[#050505] custom-scrollbar">
-      <table className="w-full text-left border-collapse table-fixed min-w-[1200px]">
-        <thead>
-          <tr className="bg-white/[0.02] text-[10px] text-white/30 uppercase tracking-widest border-b border-white/5">
-            <th className="px-6 py-5 w-[60px] text-center">
-              <button onClick={onToggleSelectAll} className="hover:text-white transition-colors">
-                {cases.length > 0 && selectedIds.size === cases.length ? <CheckSquare size={18} /> : <Square size={18} className="opacity-30" />}
-              </button>
-            </th>
-            <th className="px-6 py-5 font-bold w-[300px]">Scenario Details</th>
-            <th className="px-6 py-5 font-bold">Execution Steps</th>
-            <th className="px-6 py-5 font-bold w-[100px] text-center">Priority</th>
-            <th className="px-6 py-5 font-bold w-[80px] text-center">Auto</th>
-            <th className="px-6 py-5 font-bold w-[110px] text-center">Status</th>
-            <th className="px-6 py-5 font-bold w-[200px]">Last Audit</th>
-            <th className="px-6 py-5 w-[160px] text-center">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-white/5">
-          {cases.length > 0 ? cases.map(c => (
-            <tr key={c.id} className={`hover:bg-white/[0.02] group transition-all duration-200 ${selectedIds.has(c.id) ? 'bg-blue-500/[0.03]' : ''}`}>
-              {/* Checkbox */}
-              <td className="px-6 py-6 text-center align-middle">
-                <button
-                  onClick={() => onToggleSelect(c.id)}
-                  className={`${selectedIds.has(c.id) ? 'text-blue-500 scale-110' : 'text-white/10 hover:text-white/40'} transition-all`}
-                >
-                  {selectedIds.has(c.id) ? <CheckSquare size={18} /> : <Square size={18} />}
+    <div className="w-full bg-[#050505] border border-white/5 rounded-lg shadow-2xl overflow-hidden font-sans">
+      <div className="overflow-x-auto custom-scrollbar max-h-[700px]">
+        <table className="w-full text-left border-collapse table-fixed min-w-[1240px]">
+          <thead>
+            <tr className="bg-white/[0.02] text-[10px] text-white/30 uppercase tracking-widest border-b border-white/5">
+              <th className="px-6 py-5 w-[60px] text-center">
+                <button onClick={onToggleSelectAll} className="hover:text-white transition-colors">
+                  {cases.length > 0 && selectedIds.size === cases.length ? <CheckSquare size={16} className="text-blue-500" /> : <Square size={16} className="text-white/10" />}
                 </button>
-              </td>
+              </th>
+              <th className="px-6 py-5 w-[250px] font-bold">Scenario Details</th>
+              <th className="px-6 py-5 font-bold">Execution Steps</th>
+              <th className="px-6 py-5 w-[110px] text-center font-bold">Priority</th>
+              <th className="px-6 py-5 w-[120px] text-center font-bold">Status</th>
+              <th className="px-6 py-5 w-[80px] text-center font-bold">Auto</th>
+              <th className="px-6 py-5 w-[200px] font-bold">Last Audit</th>
+              <th className="px-6 py-5 w-[160px] text-center font-bold">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5">
+            {cases.length > 0 ? cases.map(c => {
+              const isExpanded = expandedSteps.has(c.id);
+              const isExecuting = executingId === c.id;
 
-              {/* Identifier & Scenario */}
-              <td className="px-6 py-6 align-middle">
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-mono text-xs font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">
-                      {c.id}
-                    </span>
-                    <span className="text-[10px] font-bold text-emerald-500/80 uppercase tracking-wider bg-emerald-500/5 px-1.5 py-0.5 rounded border border-emerald-500/10">
-                      {c.module || 'GENERAL'}
-                    </span>
-                  </div>
-                  <div className="text-white/90 text-[15px] font-medium leading-snug group-hover:text-blue-300 transition-colors">
-                    {c.title}
-                  </div>
-                  {c.round && (
-                    <div className="flex items-center gap-1.5 text-[10px] text-white/30 uppercase tracking-widest font-bold">
-                      <span className="w-1.5 h-1.5 rounded-full bg-white/10"></span>
-                      ROUND {c.round}
+              return (
+                <tr key={c.id} className={`group transition-all duration-200 ${selectedIds.has(c.id) ? 'bg-blue-500/[0.03]' : 'hover:bg-white/[0.01]'}`}>
+                  <td className="px-5 py-6 text-center align-middle">
+                    <button
+                      onClick={() => onToggleSelect(c.id)}
+                      className={`${selectedIds.has(c.id) ? 'text-blue-500 scale-110' : 'text-white/10 group-hover:text-white/30'} transition-all`}
+                    >
+                      {selectedIds.has(c.id) ? <CheckSquare size={18} /> : <Square size={18} />}
+                    </button>
+                  </td>
+
+                  <td className="px-5 py-6 align-middle">
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[10px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20 uppercase tracking-tight">{c.id}</span>
+                        <span className="text-[9px] font-black text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 uppercase tracking-tight">{c.module || 'GENERAL'}</span>
+                      </div>
+                      <div className="text-xs font-bold text-white group-hover:text-blue-400 transition-colors leading-snug truncate">
+                        {c.title}
+                      </div>
+                      {c.round && (
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <div className="w-1 h-1 rounded-full bg-white/20" />
+                          <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.1em]">Round {c.round}</span>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </td>
+                  </td>
 
-              {/* Steps (Expandable) */}
-              <td className="px-6 py-6 align-middle">
-                <div className="flex flex-col gap-3 group/steps">
-                  {/* Toggle Header */}
-                  <div
-                    className="flex items-center gap-2 text-white/40 text-xs cursor-pointer w-fit p-1 -ml-1 rounded hover:bg-white/5 transition-all"
-                    onClick={() => toggleSteps(c.id)}
-                  >
-                    <div className={`p-1 rounded ${expandedSteps.has(c.id) ? 'bg-blue-500/20 text-blue-400' : 'bg-white/5 text-white/30'} transition-colors`}>
-                      <ListOrdered size={14} />
-                    </div>
-                    <span className="font-semibold">{c.steps?.filter(s => s.trim()).length || 0} Steps Defined</span>
-                    <ChevronRight size={12} className={`transition-transform duration-300 ${expandedSteps.has(c.id) ? 'rotate-90 text-blue-400' : 'opacity-50'}`} />
-                  </div>
+                  <td className="px-5 py-6 align-middle overflow-hidden">
+                    <button
+                      onClick={() => toggleSteps(c.id)}
+                      className={`flex items-center gap-2 text-[10px] font-bold tracking-widest transition-all ${isExpanded ? 'text-blue-400 active:scale-95 mb-5' : 'text-white/40 hover:text-blue-400'}`}
+                    >
+                      <div className={`p-1.5 rounded-lg bg-white/5 ${isExpanded ? 'bg-blue-500/20 text-blue-400' : 'group-hover:bg-blue-500/10'}`}>
+                        <ListOrdered size={14} />
+                      </div>
+                      <span className="uppercase">{c.steps?.length || 0} Steps Defined</span>
+                      <ChevronRight size={12} className={`transition-transform duration-300 ${isExpanded ? 'rotate-90' : ''}`} />
+                    </button>
 
-                  {/* Expanded Content */}
-                  {expandedSteps.has(c.id) && (
-                    <div className="pl-2 animate-in slide-in-from-top-2 fade-in duration-300 space-y-4 border-l-2 border-white/5 ml-2.5 py-1">
-                      {/* Steps List */}
-                      {c.steps && c.steps.length > 0 && (
-                        <div className="space-y-2">
-                          {c.steps.filter(s => s.trim()).map((step, i) => (
-                            <div key={i} className="flex gap-3 text-sm text-white/70 leading-relaxed">
-                              <span className="text-white/10 font-mono text-xs select-none mt-0.5">{String(i + 1).padStart(2, '0')}</span>
-                              <span>{step}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Expected Result */}
-                      {c.expected && (
-                        <div className="bg-blue-500/5 rounded-md p-3 border border-blue-500/10">
-                          <div className="flex items-center gap-2 text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">
-                            <Target size={12} />
-                            <span>Expectation</span>
-                          </div>
-                          <div className="text-xs text-blue-100/70 leading-relaxed pl-1">
-                            {c.expected}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Actual Result */}
-                      {c.actualResult && (
-                        <div className={`rounded-md p-3 border ${c.status === 'Failed' ? 'bg-red-500/5 border-red-500/20' : 'bg-emerald-500/5 border-emerald-500/20'}`}>
-                          <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest mb-2 ${c.status === 'Failed' ? 'text-red-400' : 'text-emerald-400'}`}>
-                            {c.status === 'Failed' ? <AlertTriangle size={12} /> : <CheckCircle2 size={12} />}
-                            <span>Execution Result</span>
-                          </div>
-                          <div className="text-xs text-white/80 leading-relaxed pl-1">
-                            {c.actualResult}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Evidence Button */}
-                      {c.screenshots && c.screenshots.length > 0 && (
-                        <button
-                          onClick={(e) => toggleEvidence(c.id, e)}
-                          className="flex items-center gap-2 text-[10px] font-bold text-white/40 hover:text-purple-400 transition-colors uppercase tracking-widest mt-2"
-                        >
-                          <Image size={14} />
-                          {expandedEvidence.has(c.id) ? 'Hide Evidence Gallery' : `View ${c.screenshots.length} Screenshots`}
-                        </button>
-                      )}
-
-                      {/* Gallery */}
-                      {expandedEvidence.has(c.id) && c.screenshots && (
-                        <div className="relative group/gallery mt-3 p-3 bg-black/40 rounded-lg border border-white/5">
-                          {/* ... (Keep Gallery Logic Logic mostly same but clearer) ... */}
-                          <div id={`scroll-evidence-${c.id}`} className="flex gap-3 overflow-x-auto custom-scrollbar scroll-smooth">
-                            {c.screenshots.map((shot, sIdx) => (
-                              <div key={sIdx} onClick={() => setSelectedImage(shot.base64)} className="relative group/img cursor-zoom-in shrink-0">
-                                <div className={`w-32 aspect-video rounded overflow-hidden border ${shot.status === 'failed' ? 'border-red-500/50' : 'border-white/10 group-hover/img:border-white/30'} transition-all`}>
-                                  <img src={shot.base64} className="w-full h-full object-cover" />
-                                </div>
-                                {shot.status === 'failed' && <div className="absolute top-1 right-1 text-red-500"><AlertTriangle size={12} fill="currentColor" /></div>}
+                    <div className={`grid transition-all duration-500 ease-in-out ${isExpanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+                      <div className="overflow-hidden">
+                        <div className="animate-in fade-in slide-in-from-top-4 duration-500 space-y-4 max-w-xl pb-2 mt-2">
+                          <div className="space-y-2 border-l-2 border-white/5 pl-4 ml-1">
+                            {c.steps?.map((step, idx) => (
+                              <div key={idx} className="text-xs text-white/50 flex gap-2">
+                                <span className="text-white/10 font-mono shrink-0 select-none">{idx + 1}.</span>
+                                <span className="leading-relaxed whitespace-normal break-words">{step}</span>
                               </div>
                             ))}
                           </div>
+                          <div className="bg-blue-500/[0.04] border border-blue-500/10 rounded-lg p-4 shadow-inner">
+                            <div className="flex items-center gap-2 text-[10px] font-black text-blue-400 uppercase tracking-widest mb-3">
+                              <Target size={14} /> EXPECTED RESULT
+                            </div>
+                            {formatExpected(c.expected)}
+                          </div>
+                          {c.actualResult && (
+                            <div className={`rounded-lg p-4 border shadow-inner ${c.status === 'Passed' ? 'bg-emerald-500/[0.04] border-emerald-500/10' : 'bg-red-500/[0.04] border-red-500/10'}`}>
+                              <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest mb-3 ${c.status === 'Passed' ? 'text-emerald-400' : 'text-red-400'}`}>
+                                {c.status === 'Passed' ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
+                                EXECUTION SUMMARY
+                              </div>
+                              <div className={`text-[13px] leading-relaxed font-bold ${c.status === 'Passed' ? 'text-emerald-300/80' : 'text-red-300/80 font-mono'}`}>
+                                {c.actualResult}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Screenshot Carousel with Centered Controls & Perfect Alignment */}
+                          {c.screenshots && c.screenshots.length > 0 && (
+                            <div className="relative group/gallery border border-white/5 rounded-2xl overflow-hidden bg-black/40 p-2 mt-4 shadow-2xl">
+                              {/* Gradient Overlays */}
+                              <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-black/80 to-transparent z-10 pointer-events-none opacity-0 group-hover/gallery:opacity-100 transition-opacity" />
+                              <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-black/80 to-transparent z-10 pointer-events-none opacity-0 group-hover/gallery:opacity-100 transition-opacity" />
+
+                              {/* Premium Navigation Buttons - Fixed Action */}
+                              <button
+                                type="button"
+                                onClick={() => scrollGallery(c.id, 'left')}
+                                className="absolute left-3 top-1/2 -translate-y-1/2 z-30 w-10 h-10 bg-white hover:bg-white border border-white/20 rounded-full flex items-center justify-center text-black transition-all scale-0 group-hover/gallery:scale-100 shadow-[0_10px_30px_rgba(0,0,0,0.8)] active:scale-95 hover:-translate-x-1 cursor-pointer"
+                              >
+                                <ChevronLeft size={22} strokeWidth={3} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => scrollGallery(c.id, 'right')}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 z-30 w-10 h-10 bg-white hover:bg-white border border-white/20 rounded-full flex items-center justify-center text-black transition-all scale-0 group-hover/gallery:scale-100 shadow-[0_10px_30px_rgba(0,0,0,0.8)] active:scale-95 hover:translate-x-1 cursor-pointer"
+                              >
+                                <ChevronRight size={22} strokeWidth={3} />
+                              </button>
+
+                              <div
+                                id={`gallery-${c.id}`}
+                                className="flex gap-3 py-4 px-[calc(50%-110px)] overflow-x-auto snap-x snap-mandatory custom-scrollbar-none scroll-smooth items-center"
+                              >
+                                {c.screenshots.map((s, si) => {
+                                  const isFailed = s.status === 'failed';
+                                  return (
+                                    <div
+                                      key={si}
+                                      onClick={() => setSelectedImage(s.base64)}
+                                      className={`w-[220px] aspect-video rounded-xl border-2 overflow-hidden cursor-zoom-in transition-all shrink-0 bg-[#0A0A0A] shadow-lg snap-center ${isFailed ? 'border-red-500 ring-4 ring-red-500/30' : 'border-white/10 hover:border-blue-500/50'}`}
+                                    >
+                                      <div className="relative w-full h-full group/img">
+                                        <img src={s.base64} className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-105" alt={`Step ${si + 1}`} />
+
+                                        {/* Centered Error Message */}
+                                        {isFailed && (
+                                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-red-900/20 backdrop-blur-[1px]">
+                                            <div className="bg-red-600/90 text-[10px] font-black text-white px-4 py-1.5 rounded-full uppercase tracking-[0.25em] shadow-[0_0_30px_rgba(220,38,38,0.7)] animate-pulse border-2 border-white/20 scale-110">
+                                              BUG DETECTED
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        <div className="absolute inset-0 bg-white/5 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                          <Eye size={22} className="text-white bg-black/50 p-2 rounded-full drop-shadow-xl" />
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td className="px-5 py-6 align-middle text-center">
+                    <Badge variant={c.priority} className="scale-90">{c.priority}</Badge>
+                  </td>
+
+                  <td className="px-6 py-6 align-middle text-center">
+                    <Badge variant={c.status} className="scale-110 shadow-sm">{c.status}</Badge>
+                  </td>
+
+                  <td className="px-6 py-6 align-middle text-center">
+                    {c.hasAutomation && (
+                      <button
+                        onClick={() => !isExecuting && onRun(c)}
+                        className={`inline-flex p-2 rounded-full transition-all duration-300 ${isExecuting ? 'bg-blue-500/20 text-blue-400 animate-pulse' : 'bg-white/5 text-white/20 hover:text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/20 active:scale-90'} border border-transparent`}
+                        title="Run Automation"
+                      >
+                        {isExecuting ? (
+                          <RefreshCcw size={16} className="animate-spin" />
+                        ) : (
+                          <Play size={16} fill="currentColor" />
+                        )}
+                      </button>
+                    )}
+                  </td>
+
+                  <td className="px-6 py-6 align-middle">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-white/5 to-white/10 p-[1px] shadow-inner shrink-0">
+                        <div className="w-full h-full rounded-full overflow-hidden bg-black/50 flex items-center justify-center">
+                          {c.lastUpdatedByPhoto ? (
+                            <img src={c.lastUpdatedByPhoto} className="w-full h-full object-cover" />
+                          ) : (
+                            <User size={14} className="text-white/30" />
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-xs font-medium text-white/90 truncate">{c.lastUpdatedByName || 'QA'}</span>
+                        <span className="text-[10px] text-white/40 font-medium whitespace-nowrap leading-tight mt-0.5">
+                          {c.timestamp ? (
+                            <>
+                              {new Date(c.timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                              {' '}
+                              {new Date(c.timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                            </>
+                          ) : '-'}
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td className="px-5 py-6 align-middle text-center">
+                    <div className="flex flex-col gap-2 items-center">
+                      {!readOnly && (
+                        <div className="flex items-center bg-white/5 rounded-lg p-1 border border-white/5 shadow-sm">
+                          <button onClick={() => onStatusUpdate(c.id, 'Passed')} className="w-7 h-7 flex items-center justify-center rounded hover:bg-emerald-500 hover:text-white text-white/30 transition-all" title="Mark Passed"><CheckCircle2 size={16} /></button>
+                          <div className="w-px h-3 bg-white/10 mx-0.5"></div>
+                          <button onClick={() => onStatusUpdate(c.id, 'Failed')} className="w-7 h-7 flex items-center justify-center rounded hover:bg-red-500 hover:text-white text-white/30 transition-all" title="Mark Failed"><XCircle size={16} /></button>
                         </div>
                       )}
-
+                      <div className="flex items-center gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => onMessage(c)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-blue-500/20 hover:text-blue-400 text-white/50 transition-all relative" title="Comments">
+                          <MessageSquare size={14} />
+                          {c.commentCount && c.commentCount > (readStatus[c.id] || 0) ? (
+                            <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-1 bg-blue-500 rounded-full border-2 border-[#050505] flex items-center justify-center text-[8px] font-black text-white shadow-lg shadow-blue-500/20">
+                              {c.commentCount - (readStatus[c.id] || 0) > 9 ? '9+' : c.commentCount - (readStatus[c.id] || 0)}
+                            </span>
+                          ) : null}
+                        </button>
+                        {!readOnly && (
+                          <>
+                            <button onClick={() => onEdit(c)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-white/10 hover:text-white text-white/50 transition-all" title="Edit"><Edit3 size={14} /></button>
+                            <button onClick={() => onDelete(c.id)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-red-500/20 hover:text-red-400 text-white/50 transition-all" title="Delete"><Trash2 size={14} /></button>
+                          </>
+                        )}
+                      </div>
                     </div>
-                  )}
-
-                  {/* Collapsed Preview */}
-                  {!expandedSteps.has(c.id) && (
-                    <div className="text-xs text-white/20 italic pl-1 truncate max-w-[200px]">
-                      {c.steps?.[0] ? `${c.steps[0]}...` : ''}
+                  </td>
+                </tr>
+              );
+            }) : (
+              <tr>
+                <td colSpan={8} className="px-6 py-32 text-center">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="flex flex-col items-center gap-4 text-white/30">
+                      <Activity size={64} strokeWidth={0.5} />
+                      <span className="text-sm uppercase tracking-[0.2em] font-light">No test scenarios identified</span>
                     </div>
-                  )}
-                </div>
-              </td>
-
-              {/* Priority */}
-              <td className="px-6 py-6 align-middle text-center">
-                <Badge variant={c.priority} className="scale-110 shadow-sm">{c.priority}</Badge>
-              </td>
-
-              {/* Auto */}
-              <td className="px-6 py-6 align-middle text-center">
-                {c.hasAutomation ? (
-                  <div className={`inline-flex p-2 rounded-full ${executingId === c.id ? 'bg-blue-500/20 text-blue-400 animate-pulse' : 'bg-white/5 text-white/40 group-hover:text-blue-400 group-hover:bg-blue-500/10'} transition-all cursor-pointer`} onClick={() => !executingId && onRun(c)}>
-                    {executingId === c.id ? <RefreshCcw size={16} className="animate-spin" /> : <Play size={16} fill="currentColor" />}
-                  </div>
-                ) : (
-                  <div className="w-8 h-8 mx-auto rounded-full bg-white/[0.02] flex items-center justify-center opacity-20">
-                    <div className="w-1.5 h-1.5 rounded-full bg-white/20"></div>
-                  </div>
-                )}
-              </td>
-
-              {/* Status */}
-              <td className="px-6 py-6 align-middle text-center">
-                <Badge variant={c.status} className="scale-110 shadow-sm">{c.status}</Badge>
-              </td>
-
-              {/* Audit */}
-              <td className="px-6 py-6 align-middle">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-white/5 to-white/10 p-[1px] shadow-inner">
-                    <div className="w-full h-full rounded-full overflow-hidden bg-black/50 flex items-center justify-center">
-                      {c.lastUpdatedByPhoto ? <img src={c.lastUpdatedByPhoto} className="w-full h-full object-cover" /> : <User size={14} className="text-white/30" />}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs font-medium text-white/90">{c.lastUpdatedByName || 'System'}</div>
-                    <div className="text-[10px] text-white/40 font-mono mt-0.5">
-                      {c.timestamp ? new Date(c.timestamp).toLocaleDateString('en-GB') : '-'}
-                    </div>
-                  </div>
-                </div>
-              </td>
-
-              {/* Actions */}
-              <td className="px-6 py-6 align-middle text-center">
-                <div className="flex flex-col gap-2 items-center">
-                  {!readOnly && (
-                    <div className="flex items-center bg-white/5 rounded-lg p-1 border border-white/5 shadow-sm">
-                      <button onClick={() => onStatusUpdate(c.id, 'Passed')} className="w-7 h-7 flex items-center justify-center rounded hover:bg-emerald-500 hover:text-white text-white/30 transition-all"><CheckCircle2 size={16} /></button>
-                      <div className="w-px h-3 bg-white/10 mx-0.5"></div>
-                      <button onClick={() => onStatusUpdate(c.id, 'Failed')} className="w-7 h-7 flex items-center justify-center rounded hover:bg-red-500 hover:text-white text-white/30 transition-all"><XCircle size={16} /></button>
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => onMessage(c)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-blue-500/20 hover:text-blue-400 text-white/50 transition-all relative">
-                      <MessageSquare size={14} />
-                      {c.commentCount && c.commentCount > (readStatus[c.id] || 0) ? <span className="absolute top-0 right-0 w-2 h-2 rounded-full bg-blue-500 border border-black"></span> : null}
-                    </button>
-                    {!readOnly && (
-                      <>
-                        <button onClick={() => onEdit(c)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-white/10 hover:text-white text-white/50 transition-all"><Edit3 size={14} /></button>
-                        <button onClick={() => onDelete(c.id)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-red-500/20 hover:text-red-400 text-white/50 transition-all"><Trash2 size={14} /></button>
-                      </>
+                    {onCreate && (
+                      <button
+                        onClick={onCreate}
+                        className="mt-4 px-6 py-2 border border-white/20 hover:bg-white hover:text-black hover:border-white rounded-sm text-xs font-bold uppercase tracking-widest text-white/60 transition-all pointer-events-auto"
+                      >
+                        + Create First Case
+                      </button>
                     )}
                   </div>
-                </div>
-              </td>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
-            </tr>
-          )) : (
-            <tr>
-              <td colSpan={8} className="px-6 py-32 text-center">
-                <div className="flex flex-col items-center gap-4">
-                  <div className="flex flex-col items-center gap-4 text-white/30">
-                    <Square size={64} strokeWidth={0.5} />
-                    <span className="text-sm uppercase tracking-[0.2em] font-light">No Test Cases Found</span>
-                  </div>
-                  {onCreate && (
-                    <button
-                      onClick={onCreate}
-                      className="mt-4 px-6 py-2 border border-white/20 hover:bg-white hover:text-black hover:border-white rounded-sm text-xs font-bold uppercase tracking-widest text-white/60 transition-all pointer-events-auto"
-                    >
-                      + Create First Case
-                    </button>
-                  )}
-                </div>
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-
-      {/* Image Modal - Moved outside loop */}
       {selectedImage && (
-        <div
-          className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-xl flex items-center justify-center p-8 animate-in fade-in duration-300"
-          onClick={() => setSelectedImage(null)}
-        >
-          <button className="absolute top-6 right-6 text-white/40 hover:text-white transition-colors">
-            <XCircle size={32} />
-          </button>
-          <div className="relative max-w-7xl max-h-full w-full h-full flex items-center justify-center">
-            <img
-              src={selectedImage}
-              alt="Enlarged Proof"
-              className="max-w-full max-h-full object-contain rounded-[4px] shadow-2xl border border-white/10"
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>
+        <div className="fixed inset-0 z-[9999] bg-black/95 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setSelectedImage(null)}>
+          <img src={selectedImage} className="max-w-full max-h-full object-contain rounded-lg shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10" alt="Preview" />
         </div>
       )}
     </div>

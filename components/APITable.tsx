@@ -65,13 +65,13 @@ const APITable: React.FC<APITableProps> = ({
                                 {cases.length > 0 && selectedIds.size === cases.length ? <CheckSquare size={18} /> : <Square size={18} className="opacity-30" />}
                             </button>
                         </th>
-                        <th className="px-6 py-5 font-bold w-[120px]">Method</th>
-                        <th className="px-6 py-5 font-bold">Request Details</th>
-                        <th className="px-6 py-5 font-bold w-[140px]">Scenario ID</th>
-                        <th className="px-6 py-5 font-bold w-[120px] text-center">Status</th>
-                        <th className="px-6 py-5 font-bold w-[80px] text-center">Exec</th>
-                        <th className="px-6 py-5 font-bold w-[200px]">Last Audit</th>
-                        <th className="px-6 py-5 w-[160px] text-center">Actions</th>
+                        <th className="px-6 py-5 w-[250px] font-bold">Scenario Details</th>
+                        <th className="px-6 py-5 font-bold">Endpoint Details</th>
+                        <th className="px-6 py-5 w-[110px] text-center font-bold">Priority</th>
+                        <th className="px-6 py-5 w-[120px] text-center font-bold">Status</th>
+                        <th className="px-6 py-5 w-[80px] text-center font-bold">Auto</th>
+                        <th className="px-6 py-5 w-[200px] font-bold">Last Audit</th>
+                        <th className="px-6 py-5 w-[160px] text-center font-bold">Actions</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
@@ -87,18 +87,26 @@ const APITable: React.FC<APITableProps> = ({
                                 </button>
                             </td>
 
-                            {/* Method */}
-                            <td className="px-6 py-6 align-middle">
-                                <span className={`px-2.5 py-1 rounded text-[11px] font-black uppercase tracking-wider border ${METHOD_COLORS[c.method as keyof typeof METHOD_COLORS] || 'text-white/50 bg-white/5 border-white/10'}`}>
-                                    {c.method}
-                                </span>
+                            {/* Scenario Details (ID, Module, Method, Title) */}
+                            <td className="px-5 py-6 align-middle">
+                                <div className="flex flex-col gap-2">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="text-[10px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20 uppercase tracking-tight">{c.id}</span>
+                                        <span className="text-[10px] font-black text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 uppercase tracking-tight">{c.module || 'GENERAL'}</span>
+                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-tight border ${METHOD_COLORS[c.method as keyof typeof METHOD_COLORS] || 'text-white/50 bg-white/5 border-white/10'}`}>
+                                            {c.method}
+                                        </span>
+                                    </div>
+                                    <div className="text-xs font-bold text-white group-hover:text-blue-400 transition-colors leading-snug truncate">
+                                        {c.title}
+                                    </div>
+                                </div>
                             </td>
 
                             {/* Endpoint & Details */}
                             <td className="px-6 py-6 align-middle">
                                 <div className="flex flex-col gap-3 group/details">
                                     <div className="flex flex-col gap-0.5 min-w-0">
-                                        {c.title && <div className="text-xs font-bold text-white truncate">{c.title}</div>}
                                         <div className="font-mono text-[10px] text-white/50 truncate max-w-[400px]" title={c.url}>
                                             {c.url}
                                         </div>
@@ -143,16 +151,9 @@ const APITable: React.FC<APITableProps> = ({
                                 </div>
                             </td>
 
-                            {/* ID & Module */}
-                            <td className="px-6 py-6 align-middle">
-                                <div className="flex flex-col gap-1.5">
-                                    <span className="font-mono text-xs font-bold text-blue-400">
-                                        {c.id}
-                                    </span>
-                                    <Badge variant={c.module ? 'Medium' : 'Pending'} className="w-fit scale-90 origin-left">
-                                        {c.module || 'GENERAL'}
-                                    </Badge>
-                                </div>
+                            {/* Priority */}
+                            <td className="px-6 py-6 align-middle text-center">
+                                <Badge variant={c.priority} className="scale-90">{c.priority}</Badge>
                             </td>
 
                             {/* Status */}
@@ -163,13 +164,13 @@ const APITable: React.FC<APITableProps> = ({
                             {/* Run Button */}
                             <td className="px-6 py-6 align-middle text-center">
                                 {executingId === c.id || (executingId === 'bulk' && selectedIds.has(c.id)) ? (
-                                    <div className="inline-flex p-2 rounded-full bg-blue-500/20 text-blue-400 animate-pulse">
+                                    <div className="inline-flex p-2 rounded-full bg-blue-500/20 text-blue-400 animate-pulse border border-blue-500/10">
                                         <RefreshCcw size={16} className="animate-spin" />
                                     </div>
                                 ) : (
                                     <button
                                         onClick={() => onRun(c)}
-                                        className="inline-flex p-2 rounded-full bg-white/5 text-white/40 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all border border-transparent hover:border-emerald-500/20"
+                                        className="inline-flex p-2 rounded-full bg-white/5 text-white/20 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all border border-transparent hover:border-emerald-500/20 active:scale-90"
                                         title="Run API Request"
                                     >
                                         <Wifi size={16} fill="currentColor" />
@@ -187,8 +188,14 @@ const APITable: React.FC<APITableProps> = ({
                                     </div>
                                     <div>
                                         <div className="text-xs font-medium text-white/90">{c.lastUpdatedByName || 'System'}</div>
-                                        <div className="text-[10px] text-white/40 font-mono mt-0.5">
-                                            {c.timestamp ? new Date(c.timestamp).toLocaleDateString('en-GB') : '-'}
+                                        <div className="text-[10px] text-white/40 font-medium whitespace-nowrap leading-tight mt-0.5">
+                                            {c.timestamp ? (
+                                                <>
+                                                    {new Date(c.timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                    {' '}
+                                                    {new Date(c.timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                                                </>
+                                            ) : '-'}
                                         </div>
                                     </div>
                                 </div>
@@ -208,7 +215,11 @@ const APITable: React.FC<APITableProps> = ({
                                     <div className="flex items-center gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
                                         <button onClick={() => onMessage(c)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-blue-500/20 hover:text-blue-400 text-white/50 transition-all relative">
                                             <MessageSquare size={14} />
-                                            {c.commentCount && c.commentCount > (readStatus[c.id] || 0) ? <span className="absolute top-0 right-0 w-2 h-2 rounded-full bg-blue-500 border border-black"></span> : null}
+                                            {c.commentCount && c.commentCount > (readStatus[c.id] || 0) ? (
+                                                <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-1 bg-blue-500 rounded-full border-2 border-[#050505] flex items-center justify-center text-[8px] font-black text-white shadow-lg shadow-blue-500/20">
+                                                    {c.commentCount - (readStatus[c.id] || 0) > 9 ? '9+' : c.commentCount - (readStatus[c.id] || 0)}
+                                                </span>
+                                            ) : null}
                                         </button>
                                         {!readOnly && (
                                             <>

@@ -146,12 +146,16 @@ export default function App() {
 
   // Effect to handle Admin redirection upon login
   useEffect(() => {
-    if (user && user.email === ADMIN_EMAIL && !isInStudio) {
-      // If admin logs in, show portal first (unless already in studio/dashboard from session?)
-      // Actually, let's force portal on fresh login if not in specific mode
-      if (!isAdminDashboard) setIsAdminPortal(true);
+    // Only redirect if there is an active user who is Admin AND we are not in Studio/Dashboard
+    // AND we are not explicitly logging out (checked via user existence)
+    if (user && user.email === ADMIN_EMAIL && !isInStudio && !isAdminDashboard && !isAdminPortal && !isBooting && !confirmConfig) {
+      setIsBooting(true);
+      setTimeout(() => {
+        setIsAdminPortal(true);
+        setIsBooting(false);
+      }, 1500);
     }
-  }, [user, isInStudio, isAdminDashboard]);
+  }, [user, isInStudio, isAdminDashboard, isAdminPortal, isBooting, confirmConfig]);
 
   const handleAppLogout = async () => {
     setConfirmConfig({
@@ -545,18 +549,58 @@ export default function App() {
 
   if (authLoading) return <div className="h-screen bg-black flex items-center justify-center text-white font-mono text-xs animate-pulse">BOOTING KERNEL...</div>;
 
-  if (isAdminDashboard) {
-    return <AdminDashboard onLogout={handleAppLogout} onBackToPortal={() => { setIsAdminDashboard(false); setIsAdminPortal(true); }} />;
+  if (isAdminDashboard && user?.email === ADMIN_EMAIL) {
+    return (
+      <>
+        <AdminDashboard onLogout={handleAppLogout} onBackToPortal={() => { setIsAdminDashboard(false); setIsAdminPortal(true); }} />
+        {confirmConfig && (
+          <ConfirmModal
+            isOpen={true}
+            onClose={() => setConfirmConfig(null)}
+            onConfirm={confirmConfig.onConfirm}
+            title={confirmConfig.title}
+            message={confirmConfig.message}
+          />
+        )}
+        {alertConfig && (
+          <AlertModal
+            isOpen={true}
+            onClose={() => setAlertConfig(null)}
+            message={alertConfig.message}
+            type={alertConfig.type}
+          />
+        )}
+      </>
+    );
   }
 
-  if (isAdminPortal) {
+  if (isAdminPortal && user?.email === ADMIN_EMAIL) {
     return (
-      <AdminPortal
-        user={user}
-        onLogout={handleAppLogout}
-        onSelectStudio={() => { setIsAdminPortal(false); setIsInStudio(true); }}
-        onSelectAdmin={() => { setIsAdminPortal(false); setIsAdminDashboard(true); }}
-      />
+      <>
+        <AdminPortal
+          user={user}
+          onLogout={handleAppLogout}
+          onSelectStudio={() => { setIsAdminPortal(false); setIsInStudio(true); }}
+          onSelectAdmin={() => { setIsAdminPortal(false); setIsAdminDashboard(true); }}
+        />
+        {confirmConfig && (
+          <ConfirmModal
+            isOpen={true}
+            onClose={() => setConfirmConfig(null)}
+            onConfirm={confirmConfig.onConfirm}
+            title={confirmConfig.title}
+            message={confirmConfig.message}
+          />
+        )}
+        {alertConfig && (
+          <AlertModal
+            isOpen={true}
+            onClose={() => setAlertConfig(null)}
+            message={alertConfig.message}
+            type={alertConfig.type}
+          />
+        )}
+      </>
     );
   }
 
@@ -589,15 +633,15 @@ export default function App() {
           onLogin={handleLogin}
           onDemo={handleDemoLogin}
           onEnterStudio={() => {
-            if (user?.email === ADMIN_EMAIL) {
-              setIsAdminPortal(true);
-            } else {
-              setIsBooting(true);
-              setTimeout(() => {
+            setIsBooting(true);
+            setTimeout(() => {
+              if (user?.email === ADMIN_EMAIL) {
+                setIsAdminPortal(true);
+              } else {
                 setIsInStudio(true);
-                setIsBooting(false);
-              }, 1500);
-            }
+              }
+              setIsBooting(false);
+            }, 1500);
           }}
           onLogout={handleAppLogout}
           onLicense={() => setIsLicenseModalOpen(true)}
@@ -650,26 +694,25 @@ export default function App() {
 
       <main className="flex-1 flex flex-col transition-all duration-300">
 
-        <header className="h-14 border-b border-white/10 bg-[#050505]/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-20">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-sm select-none">
+        <header className="h-14 border-b border-white/10 bg-[#050505]/80 backdrop-blur-md grid grid-cols-[1fr_auto_1fr] items-center px-6 sticky top-0 z-20">
+          <div className="flex items-center gap-4 overflow-hidden">
+            <div className="flex items-center gap-2 text-sm select-none shrink-0">
               <span className="text-white/40 font-medium hidden sm:inline-block">Projects</span>
               <ChevronRight size={14} className="text-white/20 hidden sm:inline-block" />
-              <h2 className="font-bold text-white tracking-wide">
+              <h2 className="font-bold text-white tracking-wide truncate max-w-[150px] lg:max-w-[300px]">
                 {activeProject?.name || 'SELECT A PROJECT'}
               </h2>
             </div>
-            {user.uid === 'demo-user' && <span className="bg-amber-500/20 text-amber-500 text-[9px] px-2 py-0.5 rounded-full border border-amber-500/30 font-bold uppercase tracking-widest">Preview Mode</span>}
+            {user.uid === 'demo-user' && <span className="bg-amber-500/20 text-amber-500 text-[9px] px-2 py-0.5 rounded-full border border-amber-500/30 font-bold uppercase tracking-widest shrink-0">Preview Mode</span>}
             {activeProject?.role === 'viewer' && user.uid !== 'demo-user' && (
               <button
                 onClick={async () => {
                   const me = projectMembers.find(m => m.uid === user.uid);
                   if (me?.accessRequested) return;
                   await ProjectService.requestAccess(activeProjectId!, user.uid);
-                  // Optimistic update or wait for snapshot
                 }}
                 disabled={projectMembers.find(m => m.uid === user.uid)?.accessRequested}
-                className={`flex items-center gap-2 text-[10px] px-3 py-1.5 rounded-sm font-bold uppercase tracking-widest transition-all shadow-lg ${projectMembers.find(m => m.uid === user.uid)?.accessRequested
+                className={`flex items-center gap-2 text-[10px] px-3 py-1.5 rounded-sm font-bold uppercase tracking-widest transition-all shadow-lg shrink-0 ${projectMembers.find(m => m.uid === user.uid)?.accessRequested
                   ? 'bg-zinc-800 text-zinc-500 border border-zinc-700 cursor-not-allowed'
                   : 'bg-blue-600 text-white hover:bg-blue-500 border border-blue-500 shadow-blue-500/20 hover:shadow-blue-500/40'
                   }`}
@@ -688,39 +731,10 @@ export default function App() {
               </button>
             )}
           </div>
-          <div className="flex items-center gap-3">
-            {/* Presence Pile */}
-            <div className="flex -space-x-2 mr-4 border-r border-white/10 pr-4">
-              {projectMembers.filter(m => m.lastSeen && Date.now() - m.lastSeen < 45000).slice(0, 5).map((member) => (
-                <div key={member.uid} className="relative group cursor-pointer">
-                  <div className="w-8 h-8 rounded-full border-2 border-[#050505] overflow-hidden bg-zinc-800">
-                    {member.photoURL ? (
-                      <img src={member.photoURL} alt={member.displayName} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-white/50">
-                        {member.displayName?.charAt(0) || '?'}
-                      </div>
-                    )}
-                  </div>
-                  <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-[#050505]" />
 
-                  {/* Tooltip */}
-                  <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-black border border-white/10 px-2 py-1 rounded text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                    <span className="font-bold text-white">{member.displayName}</span>
-                    <span className="text-white/50 ml-1">
-                      {(Date.now() - (member.lastSeen || 0)) < 60000 ? 'Just now' : `${Math.floor((Date.now() - (member.lastSeen || 0)) / 60000)}m ago`}
-                    </span>
-                  </div>
-                </div>
-              ))}
-              {projectMembers.filter(m => m.lastSeen && Date.now() - m.lastSeen < 45000).length > 5 && (
-                <div className="w-8 h-8 rounded-full border-2 border-[#050505] bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white/50">
-                  +{projectMembers.filter(m => m.lastSeen && Date.now() - m.lastSeen < 45000).length - 5}
-                </div>
-              )}
-            </div>
-
-            <div className="bg-white/5 p-1 rounded-sm flex items-center border border-white/10 mr-4">
+          {/* Stable Center Navigation */}
+          <div className="flex items-center justify-center">
+            <div className="bg-white/5 p-1 rounded-sm flex items-center border border-white/10">
               <button
                 onClick={() => setViewMode('dashboard')}
                 className={`px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded-sm transition-all flex items-center gap-2 ${viewMode === 'dashboard' ? 'bg-white text-black shadow-md' : 'text-white/40 hover:text-white'}`}
@@ -741,76 +755,112 @@ export default function App() {
                 <Globe size={12} /> API Tests
               </button>
             </div>
-            {((viewMode === 'functional' && filteredCases.length > 0) || (viewMode === 'api' && filteredApiCases.length > 0)) && (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleExportCSV}
-                  className="h-8 px-3 rounded-sm text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 border border-white/10 bg-white/5 text-white/50 hover:text-white hover:bg-white/10 active:scale-95"
-                  title="Export to CSV"
-                >
-                  <Download size={14} />
-                  <span>EXPORT</span>
-                </button>
-
-                {selectedIds.size > 0 && (
-                  <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-300">
-                    <div className="h-4 w-px bg-white/10 mx-1"></div>
-                    <button
-                      onClick={handleBulkDelete}
-                      className="h-8 px-4 bg-red-500/10 text-red-500 border border-red-500/20 rounded-sm text-[10px] font-bold uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all flex items-center gap-2 active:scale-95"
-                    >
-                      <Trash2 size={14} /> DELETE ({selectedIds.size})
-                    </button>
-                    <button
-                      onClick={handleBulkRun}
-                      className="h-8 px-4 bg-emerald-600 text-white rounded-sm text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-500 transition-all flex items-center gap-2 active:scale-95 shadow-lg shadow-emerald-900/20"
-                    >
-                      <Play size={14} fill="currentColor" /> EXECUTE ({selectedIds.size})
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {viewMode === 'functional' && (
-              <button
-                onClick={() => setIsHeadless(!isHeadless)}
-                className={`h-8 px-3 rounded-sm text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 border border-white/10 ${isHeadless ? 'bg-purple-500/20 text-purple-400 border-purple-500/50' : 'bg-white/5 text-white/40 hover:text-white'}`}
-                title="Toggle Headless Mode"
-              >
-                {isHeadless ? <EyeOff size={14} /> : <Eye size={14} />}
-                <span>{isHeadless ? 'HEADLESS' : 'HEADED'}</span>
-              </button>
-            )}
-
-            {/* Create New Button - Hidden for Viewers */}
-            {viewMode !== 'dashboard' && activeProject?.role !== 'viewer' && (
-              <button
-                disabled={!activeProjectId}
-                onClick={() => {
-                  const isPro = userDoc?.tier === 'pro' && userDoc?.validUntil?.toMillis() > Date.now();
-
-                  if (viewMode === 'functional') {
-                    if (!isPro && testCases.length >= 2) {
-                      setQuotaMessage("You have reached the free limit of 2 Test Cases.");
-                      return;
-                    }
-                    setEditingCase(null); setIsCaseModalOpen(true);
-                  } else {
-                    if (!isPro && apiTestCases.length >= 2) {
-                      setQuotaMessage("You have reached the free limit of 2 API Cases.");
-                      return;
-                    }
-                    setEditingAPICase(null); setIsAPIModalOpen(true);
-                  }
-                }}
-                className="bg-white text-black px-4 py-2 rounded-sm text-xs font-bold hover:bg-white/90 transition-all active:scale-95 disabled:opacity-20 shadow-lg"
-              >
-                + NEW {viewMode === 'functional' ? 'CASE' : 'API'}
-              </button>
-            )}
           </div>
-        </header >
+
+          {/* Right Side Actions & Presence */}
+          <div className="flex items-center justify-between gap-3 pl-8">
+            {/* Presence Pile - Anchored to the start of the right zone so it never moves */}
+            <div className="flex -space-x-2 mr-2 border-r border-white/10 pr-4 shrink-0">
+              {projectMembers.filter(m => m.lastSeen && Date.now() - m.lastSeen < 45000).slice(0, 5).map((member) => (
+                <div key={member.uid} className="relative group cursor-pointer">
+                  <div className="w-8 h-8 rounded-full border-2 border-[#050505] overflow-hidden bg-zinc-800">
+                    {member.photoURL ? (
+                      <img src={member.photoURL} alt={member.displayName} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-white/50">
+                        {member.displayName?.charAt(0) || '?'}
+                      </div>
+                    )}
+                  </div>
+                  <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-[#050505]" />
+                  <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-black border border-white/10 px-2 py-1 rounded text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                    <span className="font-bold text-white">{member.displayName}</span>
+                    <span className="text-white/50 ml-1">
+                      {(Date.now() - (member.lastSeen || 0)) < 60000 ? 'Just now' : `${Math.floor((Date.now() - (member.lastSeen || 0)) / 60000)}m ago`}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {projectMembers.filter(m => m.lastSeen && Date.now() - m.lastSeen < 45000).length > 5 && (
+                <div className="w-8 h-8 rounded-full border-2 border-[#050505] bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-white/50">
+                  +{projectMembers.filter(m => m.lastSeen && Date.now() - m.lastSeen < 45000).length - 5}
+                </div>
+              )}
+            </div>
+
+            {/* Spacer to push actions to the right */}
+            <div className="flex-1" />
+
+            <div className="flex items-center gap-3 shrink-0">
+              {((viewMode === 'functional' && filteredCases.length > 0) || (viewMode === 'api' && filteredApiCases.length > 0)) && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleExportCSV}
+                    className="h-8 px-3 rounded-sm text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 border border-white/10 bg-white/5 text-white/50 hover:text-white hover:bg-white/10 active:scale-95"
+                    title="Export to CSV"
+                  >
+                    <Download size={14} />
+                    <span>EXPORT</span>
+                  </button>
+
+                  {selectedIds.size > 0 && (
+                    <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-300">
+                      <div className="h-4 w-px bg-white/10 mx-1"></div>
+                      <button
+                        onClick={handleBulkDelete}
+                        className="h-8 px-4 bg-red-500/10 text-red-500 border border-red-500/20 rounded-sm text-[10px] font-bold uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all flex items-center gap-2 active:scale-95"
+                      >
+                        <Trash2 size={14} /> DELETE ({selectedIds.size})
+                      </button>
+                      <button
+                        onClick={handleBulkRun}
+                        className="h-8 px-4 bg-emerald-600 text-white rounded-sm text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-500 transition-all flex items-center gap-2 active:scale-95 shadow-lg shadow-emerald-900/20"
+                      >
+                        <Play size={14} fill="currentColor" /> EXECUTE ({selectedIds.size})
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {viewMode === 'functional' && (
+                <button
+                  onClick={() => setIsHeadless(!isHeadless)}
+                  className={`h-8 px-3 rounded-sm text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 border border-white/10 ${isHeadless ? 'bg-purple-500/20 text-purple-400 border-purple-500/50' : 'bg-white/5 text-white/40 hover:text-white'}`}
+                  title="Toggle Headless Mode"
+                >
+                  {isHeadless ? <EyeOff size={14} /> : <Eye size={14} />}
+                  <span>{isHeadless ? 'HEADLESS' : 'HEADED'}</span>
+                </button>
+              )}
+
+              {viewMode !== 'dashboard' && activeProject?.role !== 'viewer' && (
+                <button
+                  disabled={!activeProjectId}
+                  onClick={() => {
+                    const isPro = userDoc?.tier === 'pro' && userDoc?.validUntil?.toMillis() > Date.now();
+                    if (viewMode === 'functional') {
+                      if (!isPro && testCases.length >= 2) {
+                        setQuotaMessage("You have reached the free limit of 2 Test Cases.");
+                        return;
+                      }
+                      setEditingCase(null); setIsCaseModalOpen(true);
+                    } else {
+                      if (!isPro && apiTestCases.length >= 2) {
+                        setQuotaMessage("You have reached the free limit of 2 API Cases.");
+                        return;
+                      }
+                      setEditingAPICase(null); setIsAPIModalOpen(true);
+                    }
+                  }}
+                  className="bg-white text-black px-4 py-2 rounded-sm text-xs font-bold hover:bg-white/90 transition-all active:scale-95 disabled:opacity-20 shadow-lg"
+                >
+                  + NEW {viewMode === 'functional' ? 'CASE' : 'API'}
+                </button>
+              )}
+            </div>
+          </div>
+        </header>
 
         {viewMode !== 'dashboard' && (
           <div className="h-12 border-b border-white/10 flex items-center px-6 gap-4 bg-[#050505]">
@@ -896,7 +946,7 @@ export default function App() {
         )
         }
 
-        <div className="flex-1 overflow-auto p-6 scroll-smooth custom-scrollbar">
+        <div key={viewMode} className="flex-1 overflow-auto p-6 scroll-smooth custom-scrollbar animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both">
           {viewMode === 'dashboard' ? (
             <Dashboard
               testCases={testCases}
@@ -929,8 +979,23 @@ export default function App() {
               }}
               onRun={handleRunAutomation}
               onStatusUpdate={(id: string, s: any) => handleQuickStatusUpdate(id, s, 'functional')}
-              onMessage={(tc: TestCase) => { setActiveCommentCase({ id: tc.id, title: tc.title, commentCount: tc.commentCount }); setIsCommentDrawerOpen(true); }}
-              onDelete={(id: string) => deleteItems(new Set([id]), 'functional')}
+              onMessage={(tc: TestCase) => {
+                setActiveCommentCase({ id: tc.id, title: tc.title, commentCount: tc.commentCount });
+                setIsCommentDrawerOpen(true);
+                if (activeProjectId && user) {
+                  UserReadStatusService.markRead(activeProjectId, tc.id, tc.commentCount || 0, user.uid);
+                }
+              }}
+              onDelete={(id: string) => {
+                setConfirmConfig({
+                  title: "Delete Test Case",
+                  message: "Are you sure you want to delete this test case? This action cannot be undone.",
+                  onConfirm: async () => {
+                    await deleteItems(new Set([id]), 'functional');
+                    setConfirmConfig(null);
+                  }
+                });
+              }}
               onCreate={() => {
                 const isPro = userDoc?.tier === 'pro' && userDoc?.validUntil?.toMillis() > Date.now();
                 if (!isPro && testCases.length >= 2) {
@@ -968,8 +1033,23 @@ export default function App() {
               }}
               onRun={handleRunApiTestCase}
               onStatusUpdate={(id: string, s: any) => handleQuickStatusUpdate(id, s, 'api')}
-              onMessage={(tc: APITestCase) => { setActiveCommentCase({ id: tc.id, title: tc.title, commentCount: tc.commentCount }); setIsCommentDrawerOpen(true); }}
-              onDelete={(id: string) => deleteItems(new Set([id]), 'api')}
+              onMessage={(tc: APITestCase) => {
+                setActiveCommentCase({ id: tc.id, title: tc.title, commentCount: tc.commentCount });
+                setIsCommentDrawerOpen(true);
+                if (activeProjectId && user) {
+                  UserReadStatusService.markRead(activeProjectId, tc.id, tc.commentCount || 0, user.uid);
+                }
+              }}
+              onDelete={(id: string) => {
+                setConfirmConfig({
+                  title: "Delete API Test Case",
+                  message: "Are you sure you want to delete this API test case? This action cannot be undone.",
+                  onConfirm: async () => {
+                    await deleteItems(new Set([id]), 'api');
+                    setConfirmConfig(null);
+                  }
+                });
+              }}
               onCreate={() => {
                 const isPro = userDoc?.tier === 'pro' && userDoc?.validUntil?.toMillis() > Date.now();
                 if (!isPro && apiTestCases.length >= 2) {

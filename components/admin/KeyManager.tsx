@@ -66,121 +66,131 @@ export const KeyManager: React.FC = () => {
     };
 
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-end bg-white/[0.02] p-6 rounded-lg border border-white/5">
-                <div className="space-y-2">
-                    <h3 className="text-white font-bold text-lg flex items-center gap-2">
-                        <Key size={20} className="text-emerald-500" />
-                        License Generator
-                    </h3>
-                    <p className="text-white/40 text-xs">Create new subscription keys for customers.</p>
+        <div className="space-y-8">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white/[0.02] p-8 rounded-2xl border border-white/5 backdrop-blur-md shadow-2xl">
+                <div className="space-y-3 mb-6 md:mb-0">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-[0.2em]">
+                        <Key size={10} /> Encryption & Entitlement
+                    </div>
+                    <h3 className="text-2xl font-black tracking-tighter text-white">License Minting</h3>
+                    <p className="text-white/60 text-sm font-medium tracking-tight">Provisioning new high-tier access tokens for workspace instances.</p>
                 </div>
-                <div className="flex items-end gap-3">
-                    <div className="space-y-1">
-                        <label className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Duration (Days)</label>
+                <div className="flex items-end gap-5 shrink-0">
+                    <div className="space-y-2">
+                        <label className="text-[10px] text-white/40 uppercase font-black tracking-[0.2em] pl-1">Duration</label>
                         <select
                             value={duration}
                             onChange={(e) => setDuration(Number(e.target.value))}
-                            className="bg-[#0A0A0A] text-white border border-white/10 rounded px-3 py-2 text-sm outline-none focus:border-emerald-500/50 w-32"
+                            className="bg-black/40 text-white border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:border-emerald-500/50 transition-all hover:border-white/20 w-36"
                         >
-                            <option value={30}>30 Days</option>
-                            <option value={90}>90 Days</option>
-                            <option value={365}>1 Year</option>
+                            <option value={30}>30 Standard Days</option>
+                            <option value={90}>90 Extended Days</option>
+                            <option value={365}>365 Annual Cycle</option>
                         </select>
                     </div>
-                    <div className="space-y-1">
-                        <label className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Quantity</label>
+                    <div className="space-y-2">
+                        <label className="text-[10px] text-white/40 uppercase font-black tracking-[0.2em] pl-1">Quantity</label>
                         <input
                             type="number"
                             min="1"
                             max="50"
                             value={quantity}
                             onChange={(e) => setQuantity(Number(e.target.value))}
-                            className="bg-[#0A0A0A] text-white border border-white/10 rounded px-3 py-2 text-sm outline-none focus:border-emerald-500/50 w-20"
+                            className="bg-black/40 text-white border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:border-emerald-500/50 transition-all hover:border-white/20 w-24"
                         />
                     </div>
                     <button
                         onClick={handleGenerate}
                         disabled={generating}
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded text-sm font-bold transition-all flex items-center gap-2 disabled:opacity-50"
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-3 disabled:opacity-30 shadow-lg shadow-emerald-500/10 active:scale-95 whitespace-nowrap h-[42px]"
                     >
-                        {generating ? <RefreshCw size={16} className="animate-spin" /> : <Plus size={16} />}
-                        GENERATE KEY
+                        {generating ? <RefreshCw size={16} className="animate-spin" /> : <Plus size={16} strokeWidth={3} />}
+                        Generate Licenses
                     </button>
                 </div>
             </div>
 
-            <div className="bg-[#0A0A0A] rounded-lg border border-white/5 overflow-hidden">
-                <div className="p-4 border-b border-white/5 flex justify-between items-center">
-                    <h3 className="font-bold text-sm text-white/60 uppercase tracking-widest">Key Inventory ({keys.length})</h3>
-                    <button onClick={fetchKeys} className="text-white/20 hover:text-white transition-colors">
-                        <RefreshCw size={14} />
+            <div className="bg-[#050505] rounded-2xl border border-white/5 overflow-hidden shadow-2xl">
+                <div className="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.01]">
+                    <div className="flex items-center gap-3">
+                        <h3 className="font-black text-xs text-white/60 uppercase tracking-[0.3em]">Vault Inventory</h3>
+                        <span className="bg-white/10 px-2 py-0.5 rounded text-[10px] font-black text-white/40">{keys.length} ENTIRETY</span>
+                    </div>
+                    <button onClick={fetchKeys} className="p-2 text-white/40 hover:text-white transition-all hover:bg-white/5 rounded-lg active:rotate-180 duration-500">
+                        <RefreshCw size={16} />
                     </button>
                 </div>
 
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-[#0A0A0A] text-white/40 text-[10px] uppercase font-bold tracking-wider border-b border-white/5">
-                            <tr>
-                                <th className="p-4 font-medium pl-6">License Key</th>
-                                <th className="p-4 font-medium">Duration</th>
-                                <th className="p-4 font-medium">Status</th>
-                                <th className="p-4 font-medium">Redeemed By</th>
-                                <th className="p-4 font-medium text-right pr-6">Created At</th>
+                <div className="overflow-x-auto custom-scrollbar">
+                    <table className="w-full text-left">
+                        <thead>
+                            <tr className="border-b border-white/5 text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
+                                <th className="px-8 py-6">License Hash</th>
+                                <th className="px-8 py-6">Lifespan</th>
+                                <th className="px-8 py-6">Verification</th>
+                                <th className="px-8 py-6">Redeemed Node</th>
+                                <th className="px-8 py-6 text-right">Generation Date</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/[0.03]">
                             {keys.map((k) => (
-                                <tr key={k.key} className="hover:bg-white/[0.02] transition-colors group">
-                                    <td className="p-4 pl-6 text-white/80 flex items-center gap-3">
-                                        <div className="w-2 h-2 rounded-full bg-white/10 group-hover:bg-white/30 transition-colors"></div>
-                                        {k.key}
+                                <tr key={k.key} className="hover:bg-white/[0.01] transition-all group border-transparent">
+                                    <td className="px-8 py-5 text-white/80 font-mono text-xs flex items-center gap-4">
+                                        <div className={`w-1.5 h-1.5 rounded-full ${k.isUsed ? 'bg-white/10' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'} transition-all`}></div>
+                                        <span className="tracking-wider text-white"> {k.key} </span>
                                         <button
                                             onClick={() => copyToClipboard(k.key)}
-                                            className="opacity-0 group-hover:opacity-100 text-white/20 hover:text-white transition-all transform scale-90 hover:scale-100"
-                                            title="Copy"
+                                            className="opacity-0 group-hover:opacity-100 text-white/40 hover:text-blue-400 transition-all p-1.5 rounded-lg hover:bg-blue-500/10"
+                                            title="Copy Hash"
                                         >
-                                            <Copy size={12} />
+                                            <Copy size={14} />
                                         </button>
                                     </td>
-                                    <td className="p-4 text-white/50 text-xs">{k.durationDays} Days</td>
-                                    <td className="p-4">
+                                    <td className="px-8 py-5">
+                                        <span className="text-[11px] font-black text-white/60 tracking-tight">{k.durationDays} Standard Cycles</span>
+                                    </td>
+                                    <td className="px-8 py-5">
                                         {k.isUsed ? (
-                                            <div className="flex items-center gap-2">
-                                                <span className="inline-flex items-center gap-1.5 text-white/40 bg-white/5 px-2.5 py-1 rounded-full text-[9px] font-bold border border-white/5">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-white/20"></div>
+                                            <div className="flex items-center gap-3">
+                                                <span className="inline-flex items-center gap-2 text-white/60 bg-white/10 px-3 py-1 rounded-full text-[9px] font-black tracking-widest border border-white/20">
                                                     REDEEMED
                                                 </span>
                                                 <button
                                                     onClick={() => handleRevoke(k.key)}
-                                                    className="text-white/20 hover:text-red-400 transition-colors p-1"
-                                                    title="Revoke / Reset Key"
+                                                    className="text-white/40 hover:text-red-500 transition-all p-2 rounded-lg hover:bg-red-500/10"
+                                                    title="Emergency Reset"
                                                 >
                                                     <RotateCcw size={14} />
                                                 </button>
                                             </div>
                                         ) : (
-                                            <span className="inline-flex items-center gap-1.5 text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full text-[9px] font-bold border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></div>
+                                            <span className="inline-flex items-center gap-2 text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full text-[9px] font-black tracking-widest border border-emerald-500/20 shadow-lg shadow-emerald-500/5">
                                                 AVAILABLE
                                             </span>
                                         )}
                                     </td>
-                                    <td className="p-4">
-                                        <div className="flex flex-col">
-                                            <span className="text-white/80 text-xs font-medium">{k.usedByName || '-'}</span>
-                                            <span className="text-white/30 text-[9px]">{k.usedByEmail || k.usedBy}</span>
-                                        </div>
+                                    <td className="px-8 py-5">
+                                        {k.isUsed ? (
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="text-white font-bold text-xs tracking-tight">{k.usedByName || 'Anonymous User'}</span>
+                                                <span className="text-white/60 text-[10px] font-medium">{k.usedByEmail}</span>
+                                            </div>
+                                        ) : (
+                                            <span className="text-white/30 text-xs font-black tracking-widest">-</span>
+                                        )}
                                     </td>
-                                    <td className="p-4 pr-6 text-white/30 text-[10px] text-right">
-                                        {new Date(k.createdAt).toLocaleDateString()}
+                                    <td className="px-8 py-5 text-white/60 text-[11px] text-right font-mono font-medium">
+                                        {new Date(k.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                                     </td>
                                 </tr>
                             ))}
                             {keys.length === 0 && (
                                 <tr>
-                                    <td colSpan={5} className="p-8 text-center text-white/20 italic">
-                                        {loading ? 'Loading inventory...' : 'No keys found.'}
+                                    <td colSpan={5} className="py-24 text-center">
+                                        <div className="flex flex-col items-center gap-4 text-white/10">
+                                            <Key size={48} strokeWidth={1} />
+                                            <span className="text-xs uppercase tracking-[0.3em] font-black">{loading ? 'Accessing Vault...' : 'Empty Inventory'}</span>
+                                        </div>
                                     </td>
                                 </tr>
                             )}
@@ -201,7 +211,7 @@ export const KeyManager: React.FC = () => {
                     isOpen={true}
                     onClose={() => setConfirmConfig(null)}
                     onConfirm={confirmConfig.onConfirm}
-                    title="Confirm Action"
+                    title="Security Confirmation"
                     message={confirmConfig.message}
                 />
             )}

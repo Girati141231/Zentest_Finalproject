@@ -160,16 +160,17 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
 
     if (isLogin && finalSteps.length > 0) {
       if (isNegativeTest) {
-        if (!hasAssertion) { // Only inject if missing
+        if (!hasAssertion) {
           finalSteps.push({
             type: 'ASSERT_TEXT',
             value: 'Username and password do not match',
-            note: 'Auto-injected failure validation'
+            note: 'Triple Check Rule 2: Failure validation'
           });
         }
       } else {
-        // Positive Case handling
+        // TRIPLE CHECK UPGRADE: Inject both URL and specific Logout text for maximum reliability
         if (!hasAssertion) {
+          // 1. URL Check
           const lastUrl = finalSteps.find((s: any) => s.url)?.url;
           const newUrl = (lastUrl && lastUrl.includes('saucedemo'))
             ? 'https://www.saucedemo.com/inventory.html'
@@ -178,25 +179,15 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
           finalSteps.push({
             type: 'ASSERT_URL',
             value: newUrl,
-            note: 'Auto-injected validation'
+            note: 'Triple Check Rule 1: URL Validation'
           });
-        } else {
-          // Smart Upgrade: Scan ALL steps
-          finalSteps.forEach((step: any) => {
-            if (step.type === 'ASSERT_URL' && typeof step.value === 'string') {
-              const val = step.value.trim();
-              // Upgrade weak sauce demo assertion (Aggressive Check)
-              // If it's saucedemo but NOT inventory page -> Force it to inventory
-              if (val.includes('saucedemo.com') && !val.includes('inventory.html')) {
-                step.value = 'https://www.saucedemo.com/inventory.html';
-                step.note = 'Smart Upgrade: Enforcing Inventory Check';
-              }
-              // Upgrade weak admin assertion
-              else if (val === 'https://flower-for-you-admin.vercel.app/' || val === 'https://flower-for-you-admin.vercel.app') {
-                step.value = 'https://flower-for-you-admin.vercel.app/dashboard';
-                step.note = 'Upgraded weak assertion to specific path';
-              }
-            }
+
+          // 2. Text Check (Looking for Logout or Dashboard)
+          const logoutText = (lastUrl && lastUrl.includes('admin')) ? 'ออกจากระบบ' : 'Logout';
+          finalSteps.push({
+            type: 'ASSERT_TEXT',
+            value: logoutText,
+            note: 'Triple Check Rule 2: Dashboard Presence Validation'
           });
         }
       }
@@ -458,7 +449,7 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
             onAlert?.("Notice: Script passed interactions, but no ASSERTIONS were found to verify results.", 'info');
           }
           // Auto-fill documentation if missing when passed
-          const { steps, priority, expected } = generateSmartDocumentation(form.automationSteps || [], form.title || 'Scenario');
+          const { steps, priority, expected } = generateSmartDocumentation(currentSteps, form.title || 'Scenario');
 
           const finalData = {
             ...form,

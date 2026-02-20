@@ -40,6 +40,31 @@ const APIForm: React.FC<APIFormProps> = ({
         }
     }, [isOpen, editingCase, modules]);
 
+    useEffect(() => {
+        if (!editingCase && form.url) {
+            // Automatic Priority Assessment Logic
+            const url = form.url.toLowerCase();
+            const title = (form.title || '').toLowerCase();
+            const method = form.method || 'GET';
+
+            let suggestedPriority: 'Critical' | 'High' | 'Medium' | 'Low' = 'Medium';
+
+            if (url.includes('payment') || url.includes('checkout') || title.includes('pay') || title.includes('order')) {
+                suggestedPriority = 'Critical';
+            } else if (method === 'DELETE' || url.includes('auth') || url.includes('login') || title.includes('delete') || title.includes('auth')) {
+                suggestedPriority = 'High';
+            } else if (url.includes('user') || url.includes('profile') || method === 'POST' || method === 'PUT') {
+                suggestedPriority = 'Medium';
+            } else {
+                suggestedPriority = 'Low';
+            }
+
+            if (form.priority !== suggestedPriority) {
+                setForm(prev => ({ ...prev, priority: suggestedPriority }));
+            }
+        }
+    }, [form.url, form.title, form.method, editingCase]);
+
     const handleSave = async () => {
         if (!form.url || !activeProjectId) return;
         const data = {
@@ -104,8 +129,14 @@ const APIForm: React.FC<APIFormProps> = ({
                         </select>
                     </div>
                     <div className="space-y-1.5">
-                        <label className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Round</label>
-                        <input type="number" min="1" value={form.round || 1} onChange={(e) => setForm({ ...form, round: parseInt(e.target.value) })} className="w-full bg-[#0a0a0a] border border-white/10 rounded-sm px-3 py-2 outline-none text-xs text-white focus:border-white/20" />
+                        <label className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Priority</label>
+                        <select
+                            value={form.priority}
+                            onChange={(e) => setForm({ ...form, priority: e.target.value as any })}
+                            className="w-full bg-[#0a0a0a] border border-white/10 rounded-sm px-3 py-2 outline-none cursor-pointer text-xs text-white appearance-none focus:border-white/20 font-bold"
+                        >
+                            {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
+                        </select>
                     </div>
                     <div className="space-y-1.5">
                         <label className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Expected Status</label>
@@ -116,6 +147,13 @@ const APIForm: React.FC<APIFormProps> = ({
                         <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as any })} className="w-full bg-[#0a0a0a] border border-white/10 rounded-sm px-3 py-2 outline-none cursor-pointer text-xs text-white appearance-none focus:border-white/20">
                             {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-4 gap-4">
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Round</label>
+                        <input type="number" min="1" value={form.round || 1} onChange={(e) => setForm({ ...form, round: parseInt(e.target.value) })} className="w-full bg-[#0a0a0a] border border-white/10 rounded-sm px-3 py-2 outline-none text-xs text-white focus:border-white/20" />
                     </div>
                 </div>
 
