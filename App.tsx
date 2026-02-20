@@ -35,6 +35,9 @@ import ConfirmModal from './components/ui/ConfirmModal';
 import CommentsDrawer from './components/CommentsDrawer';
 import LicenseRedemption from './components/LicenseRedemption';
 import AlertModal from './components/ui/AlertModal';
+import NotificationCenter from './components/NotificationCenter';
+import { NotificationService } from './services/NotificationService';
+import { Notification as AppNotification } from './types';
 
 // Hooks
 import { useAuth } from './hooks/useAuth';
@@ -98,6 +101,34 @@ export default function App() {
   const [projectModalMode, setProjectModalMode] = useState<ModalMode>(null);
   const [editingCase, setEditingCase] = useState<TestCase | null>(null);
   const [editingAPICase, setEditingAPICase] = useState<APITestCase | null>(null);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+
+  // --- Real-time Listeners ---
+  useEffect(() => {
+    if (user) {
+      return NotificationService.getNotifications(user.uid, setNotifications);
+    }
+  }, [user]);
+
+  const handleNotificationNavigate = (link: AppNotification['link']) => {
+    if (!link) return;
+    setViewMode(link.viewMode);
+    if (link.caseId) {
+      if (link.viewMode === 'functional') {
+        const tc = testCases.find(c => c.id === link.caseId);
+        if (tc) {
+          setActiveCommentCase({ id: tc.id, title: tc.title, commentCount: tc.commentCount });
+          setIsCommentDrawerOpen(true);
+        }
+      } else if (link.viewMode === 'api') {
+        const tc = apiTestCases.find(c => c.id === link.caseId);
+        if (tc) {
+          setActiveCommentCase({ id: tc.id, title: tc.title, commentCount: tc.commentCount });
+          setIsCommentDrawerOpen(true);
+        }
+      }
+    }
+  };
   const [confirmConfig, setConfirmConfig] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
   const [quotaMessage, setQuotaMessage] = useState<string | null>(null); // For QuotaModal
   const [alertConfig, setAlertConfig] = useState<{ message: string; type: 'info' | 'success' | 'error' } | null>(null);
@@ -160,7 +191,7 @@ export default function App() {
   const handleAppLogout = async () => {
     setConfirmConfig({
       title: "Sign Out",
-      message: "Are you sure you want to sign out?",
+      message: "Are you sure you want to sign out? Your session will be safely ended.",
       onConfirm: async () => {
         await handleLogout();
         setIsInStudio(false);
@@ -501,7 +532,7 @@ export default function App() {
     });
   };
 
-  const handleAddComment = async (content: string) => {
+  const handleAddComment = async (content: string, attachments?: any[]) => {
     if (!activeCommentCase || !user) return;
 
     const newComment: any = {
@@ -511,6 +542,7 @@ export default function App() {
       userName: user.displayName || 'Guest',
       userPhoto: user.photoURL,
       content,
+      attachments: attachments || [],
       timestamp: Date.now()
     };
 
@@ -520,6 +552,24 @@ export default function App() {
     }
 
     await CommentService.add(newComment);
+
+    // Create notifications for other members
+    projectMembers.forEach(member => {
+      if (member.uid !== user.uid) {
+        NotificationService.add({
+          userId: member.uid,
+          projectId: activeProjectId!,
+          title: `New comment from ${user.displayName || 'Guest'}`,
+          message: content || 'Sent an attachment',
+          type: 'comment',
+          link: {
+            viewMode: activeCommentCase.commentCount !== undefined ? 'functional' : 'api', // Rough guess based on count presence
+            caseId: activeCommentCase.id
+          },
+          userPhoto: user.photoURL
+        });
+      }
+    });
 
     const liveTC = testCases.find(c => c.id === activeCommentCase.id) || apiTestCases.find(c => c.id === activeCommentCase.id);
     const currentCount = liveTC?.commentCount || 0;
@@ -543,6 +593,27 @@ export default function App() {
   const handleQuickStatusUpdate = async (id: string, status: 'Passed' | 'Failed', type: 'functional' | 'api') => {
     if (activeProject?.role === 'viewer') return;
     await updateStatus(id, status, type);
+
+    // Notify on failure
+    if (status === 'Failed') {
+      const tc = type === 'functional' ? testCases.find(c => c.id === id) : apiTestCases.find(c => c.id === id);
+      projectMembers.forEach(member => {
+        if (member.uid !== user.uid) {
+          NotificationService.add({
+            userId: member.uid,
+            projectId: activeProjectId!,
+            title: 'Test Case Failed',
+            message: `${tc?.title || id} has failed. Updated by ${user.displayName || 'Guest'}`,
+            type: 'status',
+            link: {
+              viewMode: type,
+              caseId: id
+            },
+            userPhoto: user.photoURL
+          });
+        }
+      });
+    }
   };
 
   // --- Render ---
@@ -739,7 +810,7 @@ export default function App() {
                 onClick={() => setViewMode('dashboard')}
                 className={`px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded-sm transition-all flex items-center gap-2 ${viewMode === 'dashboard' ? 'bg-white text-black shadow-md' : 'text-white/40 hover:text-white'}`}
               >
-                <LayoutDashboard size={12} /> Overview
+                <LayoutDashboard size={20} /> Enter Workspace
               </button>
               <div className="w-px h-3 bg-white/10 mx-1"></div>
               <button
@@ -759,7 +830,18 @@ export default function App() {
 
           {/* Right Side Actions & Presence */}
           <div className="flex items-center justify-between gap-3 pl-8">
-            {/* Presence Pile - Anchored to the start of the right zone so it never moves */}
+            {/* Notification Center */}
+            {user && (
+              <div className="mr-2">
+                <NotificationCenter
+                  userId={user.uid}
+                  notifications={notifications}
+                  onNavigate={handleNotificationNavigate}
+                />
+              </div>
+            )}
+
+            {/* Presence Pile */}
             <div className="flex -space-x-2 mr-2 border-r border-white/10 pr-4 shrink-0">
               {projectMembers.filter(m => m.lastSeen && Date.now() - m.lastSeen < 45000).slice(0, 5).map((member) => (
                 <div key={member.uid} className="relative group cursor-pointer">

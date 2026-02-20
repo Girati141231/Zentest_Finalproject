@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Check, Copy, Trash2, LogOut, Upload, X } from 'lucide-react';
+import { Check, Copy, Trash2, LogOut, Upload, X, RotateCcw } from 'lucide-react';
 import Modal from './ui/Modal';
 import ConfirmModal from './ui/ConfirmModal';
 import AlertModal from './ui/AlertModal';
@@ -25,19 +25,18 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
 }) => {
   const [form, setForm] = useState({ name: '', color: COLORS[0], photoURL: '' });
   const [joinCode, setJoinCode] = useState('');
+  const [discoveredProject, setDiscoveredProject] = useState<Project | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
   const [newModName, setNewModName] = useState('');
   const [editingModId, setEditingModId] = useState<string | null>(null);
   const [editingModName, setEditingModName] = useState('');
-  const [copied, setCopied] = useState(false);
   const [confirmConfig, setConfirmConfig] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
   const [alertConfig, setAlertConfig] = useState<{ message: string; type: 'info' | 'success' | 'error' } | null>(null);
   const [members, setMembers] = useState<ProjectMember[]>([]);
 
   useEffect(() => {
     if (mode === 'edit' && activeProject?.id) {
-      // Subscribe to Members
       const unsub = ProjectService.getMembers(activeProject.id, (data) => {
-        // Sort: Owner first, then by Name
         const sorted = data.sort((a, b) => {
           if (a.role === 'owner') return -1;
           if (b.role === 'owner') return 1;
@@ -45,11 +44,10 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
         });
         setMembers(sorted);
 
-        // Check if I need to sync?
         if (user && user.uid !== 'demo-user') {
           const me = data.find(m => m.uid === user.uid);
           if (me && (me.photoURL !== user.photoURL || me.displayName !== user.displayName)) {
-            ProjectService.syncMemberProfile(activeProject.id, user); // Fire and forget
+            ProjectService.syncMemberProfile(activeProject.id, user);
           }
         }
       });
@@ -63,16 +61,40 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
     } else {
       setForm({ name: '', color: COLORS[0], photoURL: '' });
       setJoinCode('');
+      setDiscoveredProject(null);
     }
   }, [mode, activeProject]);
 
-  const handleCopyId = () => {
-    if (activeProject) {
-      navigator.clipboard.writeText(activeProject.id);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-      setAlertConfig({ message: 'Scope ID copied to clipboard.', type: 'info' });
-    }
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (mode === 'join' && joinCode.length >= 6) {
+        setIsSearching(true);
+        try {
+          const project = await ProjectService.getProjectPreview(joinCode);
+          setDiscoveredProject(project);
+        } catch (error) {
+          setDiscoveredProject(null);
+        } finally {
+          setIsSearching(false);
+        }
+      } else {
+        setDiscoveredProject(null);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [joinCode, mode]);
+
+  const handleResetInviteCode = async () => {
+    if (!activeProject?.id) return;
+    setConfirmConfig({
+      title: 'Reset Invitation Code?',
+      message: 'The current code will stop working immediately. People with the old code will no longer be able to join.',
+      onConfirm: async () => {
+        await ProjectService.resetInviteCode(activeProject.id);
+        setAlertConfig({ message: 'Invitation code has been refreshed.', type: 'success' });
+        setConfirmConfig(null);
+      }
+    });
   };
 
   const handleSave = async () => {
@@ -90,12 +112,10 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     if (file.size > 500 * 1024) {
-      setAlertConfig({ message: "Image is too large. Please upload an image smaller than 500KB.", type: 'error' });
+      setAlertConfig({ message: "Image is too large (max 500KB).", type: 'error' });
       return;
     }
-
     const reader = new FileReader();
     reader.onloadend = () => {
       setForm(prev => ({ ...prev, photoURL: reader.result as string }));
@@ -107,315 +127,191 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
     <Modal
       isOpen={mode !== null}
       onClose={onClose}
+      maxWidth={(mode === 'create' || mode === 'join') ? "max-w-4xl" : "max-w-2xl"}
       title={
-        mode === 'create' ? "Initialize New Scope" :
-          mode === 'join' ? "Join Existing Scope" :
-            "Scope Configuration"
+        mode === 'create' ? "Create New Project" :
+          mode === 'join' ? "Join Project" :
+            "Project Settings"
       }
     >
       {mode === 'join' ? (
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest">Scope Identifier</label>
-            <input
-              type="text"
-              value={joinCode}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setJoinCode(e.target.value)}
-              className="w-full bg-white/[0.03] border border-white/10 rounded-sm px-4 py-3 outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 focus:bg-white/[0.05] transition-all text-xs text-white placeholder:text-white/10"
-              placeholder="e.g. x8Y7z9..."
-            />
-            <p className="text-[10px] text-white/30 italic">Obtain this code from the project owner's settings.</p>
+        <div className="flex flex-col lg:flex-row gap-8 relative min-h-[350px]">
+          <div className="absolute -inset-20 opacity-[0.06] blur-[120px] pointer-events-none transition-colors duration-1000 ease-out rounded-full"
+            style={{ backgroundColor: discoveredProject?.color || '#3b82f6' }} />
+
+          <div className="flex-1 space-y-6 z-10 flex flex-col justify-center">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] text-white/40 uppercase font-bold tracking-[0.2em]">Invitation Code</label>
+                <div className="relative group">
+                  <input
+                    type="text"
+                    value={joinCode}
+                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                    className="w-full bg-white/[0.03] border border-white/10 rounded-sm px-4 py-4 outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 focus:bg-white/[0.05] transition-all text-lg font-mono font-bold text-white placeholder:text-white/5 tracking-[0.2em]"
+                    placeholder="ZEN-XXXX"
+                  />
+                  {isSearching && (
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                      <div className="w-4 h-4 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+                    </div>
+                  )}
+                </div>
+                <p className="text-[10px] text-white/20 italic">Ask the owner for the 8-character invitation code.</p>
+              </div>
+              <button
+                onClick={() => onJoin(joinCode)}
+                disabled={!discoveredProject || isSearching}
+                className={`w-full py-4 rounded-sm text-xs font-bold transition-all uppercase tracking-[0.25em] shadow-xl active:scale-[0.98] ${discoveredProject ? 'bg-blue-600 text-white hover:bg-blue-500 px-8' : 'bg-white/5 text-white/10 cursor-not-allowed border border-white/5'}`}
+                style={{ boxShadow: discoveredProject ? `0 10px 30px -10px #2563eb66` : 'none' }}
+              >
+                {isSearching ? 'Verifying...' : 'Authenticate & Join'}
+              </button>
+            </div>
           </div>
-          <button
-            onClick={() => onJoin(joinCode)}
-            className="w-full bg-blue-600 text-white py-2.5 rounded-sm text-[11px] font-bold transition-all hover:bg-blue-500 uppercase tracking-widest hover:shadow-[0_0_15px_rgba(37,99,235,0.3)] active:scale-[0.98]"
-          >
-            Authenticate & Join
-          </button>
+
+          <div className="w-full lg:w-[320px] flex flex-col z-10">
+            <label className="text-[10px] text-white/40 uppercase font-bold tracking-[0.2em] mb-4">Workspace Preview</label>
+            <div className={`flex-1 rounded-xl border transition-all duration-500 flex flex-col items-center justify-center text-center p-6 ${discoveredProject ? 'bg-gradient-to-b from-white/[0.08] to-transparent border-white/20 shadow-2xl' : 'bg-white/[0.02] border-white/5 opacity-50'}`}>
+              {discoveredProject ? (
+                <>
+                  <div className="w-20 h-20 rounded-2xl mb-6 relative overflow-hidden p-0.5" style={{ background: `linear-gradient(135deg, ${discoveredProject.color}, ${discoveredProject.color}dd)`, boxShadow: `0 0 40px -10px ${discoveredProject.color}80` }}>
+                    <div className="w-full h-full bg-[#0a0a0a] rounded-[14px] flex items-center justify-center overflow-hidden">
+                      {discoveredProject.photoURL ? <img src={discoveredProject.photoURL} alt="Preview" className="w-full h-full object-cover" /> : <span className="text-3xl font-bold text-white/40">{discoveredProject.name?.[0]?.toUpperCase()}</span>}
+                    </div>
+                  </div>
+                  <h4 className="text-lg font-bold text-white mb-2 tracking-tight">{discoveredProject.name}</h4>
+                  <div className="bg-white/5 px-3 py-1 rounded-full border border-white/10 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: discoveredProject.color }} />
+                    <span className="text-[9px] text-white/50 uppercase font-black tracking-widest">Validated ID</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center gap-4 opacity-10">
+                  <div className="w-16 h-16 rounded-2xl border-2 border-dashed border-white flex items-center justify-center"><Check size={32} /></div>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Enter valid code</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : mode === 'create' ? (
+        <div className="flex flex-col lg:flex-row gap-8 relative min-h-[400px]">
+          <div className="absolute -inset-20 opacity-[0.08] blur-[120px] pointer-events-none transition-colors duration-1000 rounded-full" style={{ backgroundColor: form.color }} />
+          <div className="flex-1 space-y-8 z-10">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest">Project Name</label>
+                <input type="text" value={form.name} autoFocus onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full bg-white/[0.03] border border-white/10 rounded-sm px-4 py-3 outline-none focus:border-indigo-500/50 transition-all text-sm text-white" placeholder="Enter name..." />
+              </div>
+              <div className="space-y-3">
+                <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest">Brand Color</label>
+                <div className="flex flex-wrap gap-2">
+                  {COLORS.map((c: string) => (
+                    <button key={c} onClick={() => setForm({ ...form, color: c })} className={`w-8 h-8 rounded-full transition-all ${form.color === c ? 'ring-2 ring-white ring-offset-4 ring-offset-[#0a0a0a]' : 'opacity-40 hover:opacity-100'}`} style={{ backgroundColor: c }} />
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-3">
+                <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest">Workspace Cover</label>
+                <div className="flex items-center gap-4 p-4 bg-white/[0.02] border border-dashed border-white/10 rounded-sm hover:border-white/20 transition-colors cursor-pointer" onClick={() => document.getElementById('project-upload-c')?.click()}>
+                  <div className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden">
+                    {form.photoURL ? <img src={form.photoURL} className="w-full h-full object-cover" /> : <Upload size={20} className="text-white/20" />}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[11px] font-bold text-white/60">Upload Cover</p>
+                    <p className="text-[9px] text-white/20 uppercase tracking-tighter">Max 500KB</p>
+                  </div>
+                  <input id="project-upload-c" type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                </div>
+              </div>
+            </div>
+            <button onClick={handleSave} disabled={!form.name.trim()} className={`w-full py-4 rounded-sm text-xs font-bold transition-all uppercase tracking-[0.2em] shadow-xl ${form.name.trim() ? 'bg-white text-black hover:bg-zinc-200' : 'bg-white/5 text-white/10 cursor-not-allowed'}`} style={{ boxShadow: form.name.trim() ? `0 10px 30px -10px ${form.color}66` : 'none' }}>Create Project</button>
+          </div>
+          <div className="w-full lg:w-[320px] flex flex-col z-10">
+            <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest mb-4">Preview</label>
+            <div className="flex-1 rounded-xl bg-gradient-to-b from-white/[0.05] to-transparent border border-white/10 p-6 flex flex-col items-center justify-center text-center relative overflow-hidden">
+              <div className="w-20 h-20 rounded-2xl mb-6 relative overflow-hidden p-0.5" style={{ background: `linear-gradient(135deg, ${form.color}, ${form.color}dd)`, boxShadow: `0 0 40px -10px ${form.color}80` }}>
+                <div className="w-full h-full bg-[#0a0a0a] rounded-[14px] flex items-center justify-center overflow-hidden">
+                  {form.photoURL ? <img src={form.photoURL} alt="Preview" className="w-full h-full object-cover" /> : <span className="text-3xl font-bold text-white/40">{form.name?.[0]?.toUpperCase() || 'Z'}</span>}
+                </div>
+              </div>
+              <h4 className="text-lg font-bold text-white mb-2 tracking-tight line-clamp-1">{form.name || "Project Name"}</h4>
+              <div className="flex items-center gap-2 mb-6"><div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: form.color }} /><span className="text-[10px] text-white/40 uppercase font-bold tracking-widest italic">Live Preview</span></div>
+            </div>
+          </div>
         </div>
       ) : (
-        <div className="space-y-8">
-          <div className="grid grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest">Scope Name</label>
-              <input
-                type="text"
-                value={form.name}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, name: e.target.value })}
-                className="w-full bg-white/[0.03] border border-white/10 rounded-sm px-3 py-2.5 outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-xs text-white"
-                placeholder="Enter scope name..."
-              />
-              <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest block mt-4">Profile Image</label>
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center bg-white/5 overflow-hidden relative group cursor-pointer"
-                  onClick={() => document.getElementById('project-image-upload')?.click()}
-                >
-                  {form.photoURL ? (
-                    <img
-                      src={form.photoURL}
-                      alt="Preview"
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = 'none';
-                        target.parentElement!.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white/40"><path d="M21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/><circle cx="9" cy="9" r="2"/><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/></svg>`;
-                      }}
-                    />
-                  ) : (
-                    <Upload size={14} className="text-white/40 group-hover:text-white transition-colors" />
-                  )}
-                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Upload size={12} className="text-white" />
+        <div className="space-y-8 animate-in fade-in duration-500">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest">Invitation Code</label>
+                <div className="flex gap-2">
+                  <div className="flex-1 bg-white/[0.05] border border-white/10 rounded-sm px-3 py-2.5 text-xs text-blue-400 font-mono font-bold tracking-widest flex items-center justify-between">
+                    {activeProject?.inviteCode || 'N/A'}
+                    <button onClick={() => { if (activeProject?.inviteCode) { navigator.clipboard.writeText(activeProject.inviteCode); setAlertConfig({ message: 'Copied!', type: 'success' }); } }} className="ml-2 text-white/20 hover:text-white p-1 hover:bg-white/5 rounded transition-all"><Copy size={12} /></button>
                   </div>
+                  <button onClick={handleResetInviteCode} className="px-3 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-sm text-white/40 hover:text-white transition-all group" title="Reset Code"><RotateCcw size={14} className="group-hover:rotate-180 transition-transform duration-500" /></button>
                 </div>
-                <input
-                  id="project-image-upload"
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleImageUpload}
-                />
-                <div className="text-[10px] text-white/30">
-                  <p>Max 500KB</p>
-                  {form.photoURL && <button onClick={() => setForm(prev => ({ ...prev, photoURL: '' }))} className="text-red-400 hover:text-red-300">Remove</button>}
+                <p className="text-[9px] text-white/20">Members join using this code.</p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest">Branding</label>
+                <div className="flex flex-col gap-4 p-4 bg-white/[0.02] border border-white/10 rounded-sm">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-lg border border-white/10 flex items-center justify-center bg-white/5 overflow-hidden relative group cursor-pointer" onClick={() => document.getElementById('p-image-edit')?.click()}>
+                      {form.photoURL ? <img src={form.photoURL} className="w-full h-full object-cover" /> : <Upload size={16} className="text-white/20" />}
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"><Upload size={14} className="text-white" /></div>
+                      <input id="p-image-edit" type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                    </div>
+                    <div className="flex-1">
+                      <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full bg-transparent border-b border-white/10 text-sm font-bold text-white outline-none focus:border-white/30 transition-all pb-1" placeholder="Project Name" />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {COLORS.map((c: string) => (
+                      <button key={c} onClick={() => setForm({ ...form, color: c })} className={`w-7 h-7 rounded-full transition-all ${form.color === c ? 'ring-1 ring-white ring-offset-2 ring-offset-[#0a0a0a]' : 'opacity-40 hover:opacity-100'}`} style={{ backgroundColor: c }} />
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              <button
-                onClick={handleSave}
-                className="w-full mt-4 bg-white text-black py-2.5 rounded-sm text-[11px] font-bold transition-all hover:bg-white/90 uppercase tracking-widest active:scale-[0.98]"
-              >
-                {mode === 'create' ? 'Deploy Scope' : 'Update Registry'}
-              </button>
+              <button onClick={handleSave} className="w-full py-3 bg-white text-black rounded-sm text-[11px] font-bold uppercase tracking-widest hover:bg-zinc-200 transition-all font-sans">Update Settings</button>
             </div>
-            <div className="space-y-2">
-              <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest">Identity Color</label>
-              <div className="flex flex-wrap gap-2 pt-1">
-                {COLORS.map((c: string) => (
-                  <button
-                    key={c}
-                    onClick={() => setForm({ ...form, color: c })}
-                    className={`w-8 h-8 rounded-full border-2 transition-all ${form.color === c ? 'border-white scale-110 shadow-lg' : 'border-transparent opacity-30 hover:opacity-100'}`}
-                    style={{ backgroundColor: c }}
-                  />
+
+            <div className="space-y-6">
+              <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest block">Team Management</label>
+              <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                {members.map((member) => (
+                  <div key={member.uid} className="flex justify-between items-center p-3 bg-white/[0.02] border border-white/5 rounded-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="w-7 h-7 rounded-full bg-blue-500/20 overflow-hidden flex items-center justify-center">
+                        {member.photoURL ? <img src={member.photoURL} className="w-full h-full object-cover" /> : <span className="text-[10px] font-bold text-blue-400">{member.displayName?.[0]}</span>}
+                      </div>
+                      <div className="flex flex-col"><span className="text-[11px] font-bold text-white/90">{member.displayName} {member.uid === user.uid && "(You)"}</span><span className="text-[9px] text-white/40">{member.role}</span></div>
+                    </div>
+                    {activeProject?.owner === user.uid && member.role !== 'owner' && (
+                      <button onClick={() => ProjectService.kickMember(activeProject!.id, member.uid)} className="text-white/10 hover:text-red-500 transition-colors"><X size={14} /></button>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
           </div>
 
-          {mode === 'edit' && activeProject && (
-            <>
-              <div className="pt-6 border-t border-white/5">
-                <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest block mb-2">Share Scope Identifier</label>
-                <div className="flex items-center gap-2 bg-black p-2 rounded-sm border border-white/10 group hover:border-white/20 transition-colors">
-                  <span className="text-[10px] text-white/60 truncate flex-1 px-2">{activeProject.id}</span>
-                  <button onClick={handleCopyId} className="p-1.5 hover:text-emerald-400 transition-colors text-white/40">
-                    {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="pt-6 border-t border-white/5">
-                <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest block mb-3">Module Registry</label>
-                <div className="flex gap-2 mb-4">
-                  <input
-                    type="text"
-                    value={newModName}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewModName(e.target.value)}
-                    placeholder="New unit ID..."
-                    className="flex-1 bg-white/[0.03] border border-white/10 rounded-sm px-3 py-2 outline-none text-xs text-white focus:border-white/20"
-                  />
-                  <button
-                    onClick={() => { onAddModule(newModName); setNewModName(''); }}
-                    className="bg-white/5 border border-white/5 px-4 rounded-sm font-bold hover:bg-white/10 hover:border-white/20 text-[10px] tracking-widest transition-all"
-                  >
-                    ADD UNIT
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto custom-scrollbar">
-                  {modules.map((m: Module) => (
-                    <div key={m.id} className="flex justify-between items-center p-2.5 bg-white/[0.02] border border-white/5 rounded-sm group hover:bg-white/[0.04] transition-colors relative">
-                      {editingModId === m.id ? (
-                        <input
-                          autoFocus
-                          value={editingModName}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingModName(e.target.value)}
-                          onBlur={() => handleUpdateModule(m.id)}
-                          onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && handleUpdateModule(m.id)}
-                          className="bg-black border border-white/20 text-[11px] font-bold text-white px-2 py-0.5 w-full outline-none"
-                        />
-                      ) : (
-                        <span
-                          className="text-[11px] truncate uppercase font-bold tracking-tight text-white/60 pl-1 cursor-pointer hover:text-white transition-colors"
-                          onClick={() => { setEditingModId(m.id); setEditingModName(m.name); }}
-                          title="Click to Rename"
-                        >
-                          {m.name}
-                        </span>
-                      )}
-                      <button onClick={() => {
-                        setConfirmConfig({
-                          title: "Delete Module",
-                          message: `Are you sure you want to delete the module "${m.name}"? This will likely cascade to related test cases.`,
-                          onConfirm: () => onDeleteModule(m.id)
-                        });
-                      }} className="text-white/10 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 pr-1"><Trash2 size={12} /></button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-
-              {/* MEMBERS MANAGEMENT */}
-              <div className="pt-6 border-t border-white/5">
-                <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest block mb-3">Team Members ({members.length})</label>
-
-                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                  {members.map((member: ProjectMember) => {
-                    const isMe = member.uid === user.uid;
-                    const amIOwner = activeProject.owner === user.uid;
-                    const isMemberOwner = member.role === 'owner';
-
-                    return (
-                      <div key={member.uid} className="flex justify-between items-center p-2.5 bg-white/[0.02] border border-white/5 rounded-sm">
-                        <div className="flex items-center gap-3">
-                          {member.photoURL ? (
-                            <img
-                              src={member.photoURL}
-                              className="w-6 h-6 rounded-full"
-                              alt="avatar"
-                              referrerPolicy="no-referrer"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = 'none';
-                                target.parentElement!.innerHTML = `<div class="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-[10px] font-bold text-blue-400">${member.displayName?.[0] || '?'}</div>`;
-                              }}
-                            />
-                          ) : (
-                            <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-[10px] font-bold text-blue-400">
-                              {member.displayName?.[0] || '?'}
-                            </div>
-                          )}
-                          <div className="flex flex-col">
-                            <span className="text-[11px] font-bold text-white/80">{member.displayName} {isMe && <span className="text-white/30 text-[9px]">(You)</span>}</span>
-                            <span className="text-[9px] text-white/40">{member.email}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          {member.accessRequested && amIOwner && (
-                            <div className="flex items-center gap-1 mr-2 bg-indigo-500/10 border border-indigo-500/20 rounded px-1.5 py-0.5">
-                              <span className="text-[9px] text-indigo-400 font-bold uppercase tracking-wider">Requested</span>
-                              <button
-                                onClick={() => ProjectService.resolveAccessRequest(activeProject.id, member.uid, true)}
-                                className="ml-1 p-0.5 text-indigo-400 hover:text-green-400 transition-colors"
-                                title="Approve"
-                              >
-                                <Check size={12} />
-                              </button>
-                              <button
-                                onClick={() => ProjectService.resolveAccessRequest(activeProject.id, member.uid, false)}
-                                className="p-0.5 text-indigo-400 hover:text-red-400 transition-colors"
-                                title="Deny"
-                              >
-                                <X size={12} />
-                              </button>
-                            </div>
-                          )}
-                          {isMemberOwner ? (
-                            <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 text-[9px] font-bold uppercase tracking-wider border border-amber-500/20">Owner</span>
-                          ) : (
-                            amIOwner ? (
-                              <select
-                                value={member.role}
-                                onChange={(e) => ProjectService.updateMemberRole(activeProject.id, member.uid, e.target.value)}
-                                className="bg-black border border-white/10 text-[9px] text-white/70 rounded px-1 py-0.5 outline-none focus:border-white/20 uppercase font-bold tracking-wider"
-                              >
-                                <option value="editor">Editor</option>
-                                <option value="viewer">Viewer</option>
-                              </select>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded bg-white/5 text-white/50 text-[9px] font-bold uppercase tracking-wider border border-white/10">{member.role}</span>
-                            )
-                          )}
-
-                          {amIOwner && !isMemberOwner && !isMe && (
-                            <button
-                              onClick={() => {
-                                setConfirmConfig({
-                                  title: "Remove Member",
-                                  message: `Are you sure you want to remove ${member.displayName} from the project?`,
-                                  onConfirm: () => ProjectService.kickMember(activeProject.id, member.uid)
-                                });
-                              }}
-                              className="w-6 h-6 flex items-center justify-center rounded text-white/20 hover:text-red-500 hover:bg-red-500/10 transition-all"
-                              title="Kick Member"
-                            >
-                              <LogOut size={12} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="pt-6 border-t border-red-500/10">
-                <label className="text-[10px] text-red-500/40 uppercase font-bold block mb-3 italic tracking-widest">Danger Zone</label>
-                {activeProject.owner === user.uid ? (
-                  <button
-                    onClick={() => {
-                      setConfirmConfig({
-                        title: "Delete Project",
-                        message: `Are you sure you want to permanently delete "${activeProject.name}"? This action CANNOT be undone.`,
-                        onConfirm: () => onDelete(activeProject.id, true)
-                      });
-                    }}
-                    className="w-full flex items-center justify-center gap-2 py-3 border border-red-500/20 text-red-500 hover:text-white hover:bg-red-500 rounded-sm text-[11px] font-bold transition-all uppercase tracking-widest shadow-[0_0_15px_rgba(239,68,68,0.1)] hover:shadow-[0_0_25px_rgba(239,68,68,0.4)]"
-                  >
-                    <Trash2 size={14} /> DELETE PROJECT PERMANENTLY
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => {
-                      setConfirmConfig({
-                        title: "Leave Scope",
-                        message: `Are you sure you want to leave "${activeProject.name}"?`,
-                        onConfirm: () => onDelete(activeProject.id, false)
-                      });
-                    }}
-                    className="w-full flex items-center justify-center gap-2 py-3 border border-red-500/10 text-red-500/60 hover:text-red-500 hover:bg-red-500/5 rounded-sm text-[11px] font-bold transition-all uppercase tracking-widest"
-                  >
-                    <LogOut size={14} /> Disconnect / Leave Scope
-                  </button>
-                )}
-              </div>
-            </>
-          )}
+          <div className="pt-6 border-t border-red-500/10 opacity-50 hover:opacity-100 transition-opacity">
+            <button onClick={() => { if (activeProject?.owner === user.uid) onDelete(activeProject!.id, true); else onDelete(activeProject!.id, false); }} className="w-full py-3 border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white rounded-sm text-[10px] font-bold uppercase tracking-widest transition-all">
+              {activeProject?.owner === user.uid ? "Destroy Project Permanently" : "Leave Project"}
+            </button>
+          </div>
         </div>
-      )
-      }
-      {
-        confirmConfig && (
-          <ConfirmModal
-            isOpen={true}
-            onClose={() => setConfirmConfig(null)}
-            onConfirm={confirmConfig.onConfirm}
-            title={confirmConfig.title}
-            message={confirmConfig.message}
-          />
-        )
-      }
-      <AlertModal
-        isOpen={!!alertConfig}
-        onClose={() => setAlertConfig(null)}
-        message={alertConfig?.message || ''}
-        type={alertConfig?.type}
-      />
-    </Modal >
+      )}
+
+      {confirmConfig && <ConfirmModal isOpen={true} onClose={() => setConfirmConfig(null)} onConfirm={confirmConfig.onConfirm} title={confirmConfig.title} message={confirmConfig.message} />}
+      <AlertModal isOpen={!!alertConfig} onClose={() => setAlertConfig(null)} message={alertConfig?.message || ''} type={alertConfig?.type} />
+    </Modal>
   );
 };
 

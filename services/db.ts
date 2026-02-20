@@ -17,7 +17,8 @@ import {
   getDoc
 } from 'firebase/firestore';
 import { db, appId, isConfigured } from '../firebase';
-import { Project, TestCase, Module, APITestCase, Comment } from '../types';
+import { Project, Module, TestCase, APITestCase, Comment } from '../types';
+import { NotificationService } from './NotificationService';
 
 // Paths
 const PUBLIC_DATA_PATH = ['artifacts', appId, 'public', 'data'];
@@ -78,10 +79,14 @@ export const ProjectService = {
       return `demo-project-${Date.now()}`;
     }
 
+    // Generate standardized 8-char invite code
+    const inviteCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+
     // 1. Create in Public Data
     const projectRef = await addDoc(collection(db, PUBLIC_DATA_PATH[0], PUBLIC_DATA_PATH[1], PUBLIC_DATA_PATH[2], PUBLIC_DATA_PATH[3], 'projects'), {
       ...data,
-      owner: uid, // Ensure owner is set
+      owner: uid,
+      inviteCode,
       createdAt: serverTimestamp()
     });
 
@@ -92,7 +97,6 @@ export const ProjectService = {
     });
 
     // 3. Add to Project Members Collection
-    // Use helper or manual path join
     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projects', projectRef.id, 'members', uid), {
       uid,
       role: 'owner',
@@ -102,14 +106,32 @@ export const ProjectService = {
     return projectRef.id;
   },
 
-  // User joining a project via code
-  join: async (projectId: string, user: any) => {
+  // Professional discovery mechanism
+  getProjectPreview: async (inviteCode: string): Promise<Project | null> => {
+    if (!isConfigured) return null;
+    const q = query(
+      collection(db, PUBLIC_DATA_PATH[0], PUBLIC_DATA_PATH[1], PUBLIC_DATA_PATH[2], PUBLIC_DATA_PATH[3], 'projects'),
+      where('inviteCode', '==', inviteCode.trim().toUpperCase()),
+      limit(1)
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) return null;
+    return { id: snap.docs[0].id, ...snap.docs[0].data() } as Project;
+  },
+
+  // User joining a project via invite code
+  join: async (inviteCode: string, user: any) => {
     if (!isConfigured) { await delay(500); return; }
+
+    const project = await ProjectService.getProjectPreview(inviteCode);
+    if (!project) throw new Error("Invalid invitation code");
+
+    const projectId = project.id;
 
     // 1. Add to My Projects
     await setDoc(doc(db, USER_DATA_PATH(user.uid)[0], USER_DATA_PATH(user.uid)[1], USER_DATA_PATH(user.uid)[2], USER_DATA_PATH(user.uid)[3], USER_DATA_PATH(user.uid)[4], projectId), {
       joinedAt: Date.now(),
-      role: 'viewer' // Default to viewer
+      role: 'viewer'
     });
 
     // 2. Add to Project Members
@@ -121,6 +143,28 @@ export const ProjectService = {
       role: 'viewer',
       joinedAt: Date.now()
     });
+
+    // 3. Notify Owner
+    if (project.owner && project.owner !== user.uid) {
+      await NotificationService.add({
+        userId: project.owner,
+        projectId,
+        title: 'New Project Member',
+        message: `${user.displayName || 'Someone'} joined via invite code.`,
+        type: 'request',
+        userPhoto: user.photoURL
+      });
+    }
+
+    return projectId;
+  },
+
+  resetInviteCode: async (projectId: string) => {
+    if (!isConfigured) return;
+    const newCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const ref = doc(db, PUBLIC_DATA_PATH[0], PUBLIC_DATA_PATH[1], PUBLIC_DATA_PATH[2], PUBLIC_DATA_PATH[3], 'projects', projectId);
+    await updateDoc(ref, { inviteCode: newCode });
+    return newCode;
   },
 
   getMembers: (projectId: string, callback: (members: any[]) => void) => {
@@ -212,6 +256,15 @@ export const ProjectService = {
       } catch (e) {
         console.warn("Could not update user's private project role copy (resolve):", e);
       }
+
+      // Notify User
+      await NotificationService.add({
+        userId: uid,
+        projectId,
+        title: 'Access Approved',
+        message: 'Your request for edit access has been approved!',
+        type: 'system'
+      });
     } else {
       // Deny: Just remove the request flag
       await updateDoc(memberRef, {

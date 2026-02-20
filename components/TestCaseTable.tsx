@@ -99,12 +99,12 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
                   {cases.length > 0 && selectedIds.size === cases.length ? <CheckSquare size={16} className="text-blue-500" /> : <Square size={16} className="text-white/10" />}
                 </button>
               </th>
-              <th className="px-6 py-5 w-[250px] font-bold">Scenario Details</th>
-              <th className="px-6 py-5 font-bold">Execution Steps</th>
+              <th className="px-6 py-5 w-[250px] font-bold">Scenario</th>
+              <th className="px-6 py-5 font-bold">Test Steps</th>
               <th className="px-6 py-5 w-[110px] text-center font-bold">Priority</th>
               <th className="px-6 py-5 w-[120px] text-center font-bold">Status</th>
               <th className="px-6 py-5 w-[80px] text-center font-bold">Auto</th>
-              <th className="px-6 py-5 w-[200px] font-bold">Last Audit</th>
+              <th className="px-6 py-5 w-[200px] font-bold">Last Updated</th>
               <th className="px-6 py-5 w-[160px] text-center font-bold">Actions</th>
             </tr>
           </thead>
@@ -349,14 +349,14 @@ const TestCaseTable: React.FC<TestCaseTableProps> = ({
                   <div className="flex flex-col items-center gap-4">
                     <div className="flex flex-col items-center gap-4 text-white/30">
                       <Activity size={64} strokeWidth={0.5} />
-                      <span className="text-sm uppercase tracking-[0.2em] font-light">No test scenarios identified</span>
+                      <span className="text-sm uppercase tracking-[0.2em] font-light">No test scenarios found</span>
                     </div>
                     {onCreate && (
                       <button
                         onClick={onCreate}
                         className="mt-4 px-6 py-2 border border-white/20 hover:bg-white hover:text-black hover:border-white rounded-sm text-xs font-bold uppercase tracking-widest text-white/60 transition-all pointer-events-auto"
                       >
-                        + Create First Case
+                        + Create First Scenario
                       </button>
                     )}
                   </div>

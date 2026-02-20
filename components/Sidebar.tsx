@@ -47,7 +47,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <button
           onClick={onBackToHome}
           className={`flex items-center transition-opacity duration-300 hover:opacity-80 ${isExpanded ? 'gap-3 opacity-100' : 'justify-center'}`}
-          title="Back to Landing Page"
+          title="Back to Home"
         >
           <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
             <img src="/Zenlogo.png" alt="Logo" className="w-7 h-7 object-contain" />
@@ -64,7 +64,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       <div className="flex-1 flex flex-col gap-2 overflow-y-auto no-scrollbar px-3">
         <div className={`px-2 py-2 text-[10px] uppercase tracking-widest text-white/20 font-bold overflow-hidden transition-all duration-200 whitespace-nowrap ${isExpanded ? 'opacity-100 h-auto mb-2' : 'opacity-0 h-0 mb-0'}`}>
-          Scopes
+          Projects
         </div>
         {projects.map(p => (
           <button
@@ -107,7 +107,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={onCreateProject}
             className={`flex items-center rounded-sm border border-dashed border-white/10 text-white/40 hover:text-white hover:bg-white/5 hover:border-white/30 transition-all duration-200 flex-shrink-0 hover:scale-[1.02] active:scale-[0.98] ${isExpanded ? 'gap-3 p-2.5' : 'justify-center mx-auto w-10 h-10'}`}
-            title="Create New Scope"
+            title="Create New Project"
           >
             <Plus size={16} className="flex-shrink-0" />
             {isExpanded && <span className="font-medium text-sm animate-in fade-in duration-200 whitespace-nowrap overflow-hidden">New Project</span>}
@@ -115,7 +115,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={onJoinProject}
             className={`flex items-center rounded-sm border border-dashed border-blue-500/20 text-blue-500/60 hover:text-blue-400 hover:bg-blue-500/10 hover:border-blue-500/40 transition-all duration-200 flex-shrink-0 hover:scale-[1.02] active:scale-[0.98] ${isExpanded ? 'gap-3 p-2.5' : 'justify-center mx-auto w-10 h-10'}`}
-            title="Join Existing Scope"
+            title="Join Project"
           >
             <Share2 size={16} className="flex-shrink-0" />
             {isExpanded && <span className="font-medium text-sm animate-in fade-in duration-200 whitespace-nowrap overflow-hidden">Join Project</span>}
@@ -152,7 +152,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
           {isExpanded && (
             <div className="flex items-center justify-between flex-1">
-              <span className="font-medium text-sm animate-in fade-in duration-200 whitespace-nowrap overflow-hidden">Config</span>
+              <span className="font-medium text-sm animate-in fade-in duration-200 whitespace-nowrap overflow-hidden">Settings</span>
               {pendingRequestCount !== undefined && pendingRequestCount > 0 && (
                 <span className="bg-red-500 text-white text-[9px] font-bold px-1.5 rounded-full">{pendingRequestCount}</span>
               )}

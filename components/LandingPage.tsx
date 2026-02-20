@@ -134,7 +134,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ user, onLogin, onDemo, onEnte
                                         onClick={onEnterStudio}
                                         className="h-14 px-8 min-w-[180px] bg-white text-black font-semibold rounded-full hover:bg-zinc-200 transition-all flex items-center justify-center gap-3 shadow-[0_4px_30px_rgba(255,255,255,0.15)] active:scale-95 text-lg"
                                     >
-                                        <LayoutDashboard size={20} /> Enter Studio
+                                        <LayoutDashboard size={20} /> Enter Workspace
                                     </button>
                                 ) : (
                                     <>

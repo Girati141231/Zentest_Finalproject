@@ -501,7 +501,7 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       maxWidth="max-w-4xl"
-      title={editingCase ? `Modify ${editingCase.id}` : 'Create Scenario'}
+      title={editingCase ? `Modify ${editingCase.id}` : 'New Scenario'}
       footer={
         <div className="flex gap-3">
           {(activeTab === 'auto' && (isBrowsingLibrary || !form.hasAutomation) && stagedScript) ? (
@@ -513,7 +513,7 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
             </button>
           ) : (
             <button onClick={() => handleSave()} className="bg-white text-black px-8 py-2.5 rounded-sm text-xs font-bold hover:bg-white/90 transition-all uppercase tracking-widest shadow-lg">
-              Commit Changes
+              Save Scenario
             </button>
           )}
         </div>
@@ -522,8 +522,8 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
       <div className="flex flex-col gap-6">
         <div className="flex justify-between items-center border-b border-white/5 mb-2">
           <div className="flex gap-6">
-            <button onClick={() => setActiveTab('doc')} className={`pb-2 text-[11px] font-bold uppercase tracking-wider transition-all border-b-2 ${activeTab === 'doc' ? 'text-white border-white' : 'text-white/30 border-transparent hover:text-white/60'}`}>General Info</button>
-            <button onClick={() => setActiveTab('auto')} className={`pb-2 text-[11px] font-bold uppercase tracking-wider transition-all border-b-2 ${activeTab === 'auto' ? 'text-white border-white' : 'text-white/30 border-transparent hover:text-white/60'}`}>Automation Hub</button>
+            <button onClick={() => setActiveTab('doc')} className={`pb-2 text-[11px] font-bold uppercase tracking-wider transition-all border-b-2 ${activeTab === 'doc' ? 'text-white border-white' : 'text-white/30 border-transparent hover:text-white/60'}`}>Details</button>
+            <button onClick={() => setActiveTab('auto')} className={`pb-2 text-[11px] font-bold uppercase tracking-wider transition-all border-b-2 ${activeTab === 'auto' ? 'text-white border-white' : 'text-white/30 border-transparent hover:text-white/60'}`}>Automation</button>
           </div>
 
         </div>
@@ -612,8 +612,8 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
 
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <label className="text-xs text-white/50 uppercase font-bold tracking-widest">Execution Steps Sequence</label>
-                <button onClick={() => setForm({ ...form, steps: [...(form.steps || []), ''] })} className="text-[10px] font-bold text-blue-500 hover:text-blue-400 transition-colors uppercase tracking-wider">+ Add Node</button>
+                <label className="text-xs text-white/50 uppercase font-bold tracking-widest">Test Steps</label>
+                <button onClick={() => setForm({ ...form, steps: [...(form.steps || []), ''] })} className="text-[10px] font-bold text-blue-500 hover:text-blue-400 transition-colors uppercase tracking-wider">+ Add Step</button>
               </div>
               <div className="space-y-1.5 max-h-48 overflow-y-auto pr-2 custom-scrollbar bg-white/[0.01] p-2 rounded border border-white/5">
                 {form.steps?.map((s, i) => (
@@ -655,7 +655,7 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
             {!form.hasAutomation && activeProjectId && (
               <div className="bg-blue-500/5 border border-blue-500/10 p-4 rounded-sm flex items-center justify-between">
                 <div className="flex flex-col gap-1">
-                  <span className="text-[9px] font-bold text-blue-400 uppercase tracking-widest">Chrome Recorder Context Key</span>
+                  <span className="text-[9px] font-bold text-blue-400 uppercase tracking-widest">Automation Key</span>
                   <span className="text-[11px] text-white/40">{activeProjectId}</span>
                 </div>
                 <button
