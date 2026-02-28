@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { XCircle, Code2, Play, FileJson, Sparkles, Folder, FileCode, RotateCcw, Trash2, FolderOpen, CheckCircle2, Copy, Check } from 'lucide-react';
+import { XCircle, Code2, Play, FileJson, Sparkles, Folder, FileCode, RotateCcw, Trash2, FolderOpen, CheckCircle2, Copy, Check, Key } from 'lucide-react';
 import Modal from './ui/Modal';
 import AlertModal from './ui/AlertModal';
 import { TestCase, Module, Priority, Status, PRIORITIES, STATUSES } from '../types';
@@ -13,6 +13,7 @@ interface TestCaseFormProps {
   onSave: (data: Partial<TestCase>, isNew: boolean) => Promise<void>;
   onRun?: (testCase: TestCase) => Promise<any>;
   onAlert?: (message: string, type: 'info' | 'success' | 'error') => void;
+  user: any;
 }
 
 const DEFAULT_FORM: Partial<TestCase> = {
@@ -28,10 +29,12 @@ const DEFAULT_FORM: Partial<TestCase> = {
 };
 
 const TestCaseForm: React.FC<TestCaseFormProps> = ({
-  isOpen, onClose, activeProjectId, modules, editingCase, onSave, onRun, onAlert
+  isOpen, onClose, activeProjectId, modules, editingCase, onSave, onRun, onAlert, user
 }) => {
   const [activeTab, setActiveTab] = useState<'doc' | 'auto'>('doc');
   const [form, setForm] = useState<Partial<TestCase>>(DEFAULT_FORM);
+  const [showModuleDropdown, setShowModuleDropdown] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
 
   // Automation Library States
   const [library, setLibrary] = useState<any[]>([]);
@@ -68,6 +71,9 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
     try {
       const response = await fetch(`http://localhost:3002/list-automation/${activeProjectId}`);
       const data = await response.json();
+
+      // Small artificial delay so the user can see the spin animation
+      await new Promise(r => setTimeout(r, 600));
       // Ensure data is always an array
       if (Array.isArray(data)) {
         setLibrary(data);
@@ -206,6 +212,8 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
     const finalSteps = applySmartAssertions(stagedScript.steps, stagedScript.scenarioName);
     const { steps: readableSteps, priority, expected } = generateSmartDocumentation(finalSteps, stagedScript.scenarioName);
 
+    const matchedModule = modules.find(m => m.name.toLowerCase() === (stagedScript.folderName || '').toLowerCase());
+
     const updatedData = {
       ...form,
       automationSteps: finalSteps,
@@ -213,7 +221,9 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
       title: stagedScript.scenarioName,
       steps: readableSteps,
       priority: priority,
-      expected: expected
+      expected: expected,
+      // Auto-assign module if it exists in the project
+      module: matchedModule ? matchedModule.name : (form.module || 'General')
     };
 
     setForm(updatedData);
@@ -312,9 +322,11 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
 
       for (const auto of selectedScripts) {
         const { steps, priority, expected } = generateSmartDocumentation(auto.steps, auto.scenarioName);
+        const folderMatch = modules.find(m => m.name.toLowerCase() === (auto.folderName || '').toLowerCase());
+
         const data: Partial<TestCase> = {
           title: auto.scenarioName,
-          module: form.module || modules[0]?.name || 'General',
+          module: folderMatch ? folderMatch.name : (form.module || modules[0]?.name || 'General'),
           priority,
           status: 'Pending',
           steps,
@@ -547,23 +559,39 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
                 <div className="space-y-1.5">
                   <label className="text-xs text-white/50 uppercase font-bold tracking-widest">Module</label>
                   <div className="relative group/select">
-                    <select
+                    <input
+                      type="text"
                       value={form.module}
-                      onChange={(e) => setForm({ ...form, module: e.target.value })}
-                      className="w-full bg-[#0a0a0a] border border-white/10 rounded-sm px-3 py-2.5 outline-none cursor-pointer text-sm text-white appearance-none focus:border-blue-500/50 transition-all pr-8"
-                    >
-                      <option value="">Unassigned</option>
-                      {modules
-                        .filter(m => m.name && m.name.trim() !== '')
-                        .map(m => <option key={m.id} value={m.name}>{m.name}</option>)
-                      }
-                    </select>
-                    <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-white/20 group-hover/select:text-white/40 transition-colors">
-                      <RotateCcw size={10} className="hidden" /> {/* Placeholder icon or just a chevron */}
+                      onFocus={() => { setShowModuleDropdown(true); setIsTyping(false); }}
+                      onBlur={() => setTimeout(() => setShowModuleDropdown(false), 200)}
+                      onChange={(e) => { setForm({ ...form, module: e.target.value }); setIsTyping(true); }}
+                      className="w-full bg-[#0a0a0a] border border-white/10 rounded-sm px-3 py-2.5 outline-none text-sm text-white focus:border-blue-500/50 transition-all pr-8"
+                      placeholder="Select or type..."
+                    />
+                    <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-white/20 transition-colors">
                       <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     </div>
+
+                    {showModuleDropdown && (
+                      <div className="absolute left-0 right-0 top-full mt-1 bg-[#0f0f0f] border border-white/10 rounded-sm shadow-2xl z-[100] max-h-48 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-1 duration-200">
+                        {modules
+                          .filter(m => !isTyping || !form.module || m.name.toLowerCase().includes(form.module.toLowerCase()))
+                          .map(m => (
+                            <div
+                              key={m.id}
+                              onClick={() => { setForm({ ...form, module: m.name }); setShowModuleDropdown(false); }}
+                              className="px-3 py-2 text-xs text-white/70 hover:bg-white/5 hover:text-white cursor-pointer transition-colors border-b border-white/5 last:border-none"
+                            >
+                              {m.name}
+                            </div>
+                          ))}
+                        {modules.filter(m => !isTyping || !form.module || m.name.toLowerCase().includes(form.module.toLowerCase())).length === 0 && (
+                          <div className="px-3 py-3 text-[10px] text-white/20 italic">No matches found. Press Enter to create new.</div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="space-y-1.5">
@@ -651,20 +679,34 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
           </div>
         ) : (
           <div className="space-y-6 animate-in fade-in duration-300">
-            {/* Key Section for extension */}
+            {/* Simplified Key Section for extension */}
             {!form.hasAutomation && activeProjectId && (
-              <div className="bg-blue-500/5 border border-blue-500/10 p-4 rounded-sm flex items-center justify-between">
-                <div className="flex flex-col gap-1">
-                  <span className="text-[9px] font-bold text-blue-400 uppercase tracking-widest">Automation Key</span>
-                  <span className="text-[11px] text-white/40">{activeProjectId}</span>
+              <div className="flex flex-col gap-2 mb-3">
+                <div className="bg-purple-600/5 border border-purple-500/20 p-4 rounded-lg flex items-center justify-between shadow-lg shadow-purple-900/5">
+                  <div className="flex flex-col gap-1 flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <Key size={12} className="text-purple-400" />
+                      <span className="text-[10px] font-black text-purple-400 uppercase tracking-[0.2em]">Connection Key (Account)</span>
+                    </div>
+                    <p className="text-[10px] text-white/70 font-medium mb-1.5">
+                      Paste this in <span className="text-purple-400 font-bold">Extension Settings</span> to sync <span className="text-white/40 ml-1">(ใส่ในส่วนตั้งค่าของ Extension เพื่อเชื่อมต่อ)</span>
+                    </p>
+                    <div className="flex">
+                      <span className="text-[12px] font-mono text-white/90 bg-white/5 px-2 py-1 rounded border border-white/5 tracking-wider">
+                        {user?.uid}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(user?.uid);
+                      onAlert?.("Connection Key copied! Paste this in the Extension Settings.", "success");
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-md text-[10px] font-black transition-all border border-purple-500/30 uppercase tracking-widest shadow-xl shadow-purple-900/20 active:scale-95"
+                  >
+                    <Copy size={12} /> COPY KEY
+                  </button>
                 </div>
-                <button
-                  onClick={handleCopyId}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-sm text-[10px] font-bold transition-all border border-blue-500/20 shadow-lg shadow-blue-900/10"
-                >
-                  {copied ? <Check size={12} /> : <Copy size={12} />}
-                  {copied ? 'COPIED' : 'COPY KEY'}
-                </button>
               </div>
             )}
 
@@ -673,7 +715,13 @@ const TestCaseForm: React.FC<TestCaseFormProps> = ({
                 <div className="w-[320px] shrink-0 border-r border-white/10 pr-6 overflow-y-auto custom-scrollbar">
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-[9px] font-black text-white/30 tracking-widest uppercase">Automation Library</span>
-                    <button onClick={fetchLibrary} className="text-white/20 hover:text-white transition-all"><RotateCcw size={12} /></button>
+                    <button
+                      onClick={fetchLibrary}
+                      className="text-white/20 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={isLoadingLibrary}
+                    >
+                      <RotateCcw size={12} className={isLoadingLibrary ? 'animate-spin' : ''} />
+                    </button>
                   </div>
                   {Object.entries(groupedLibrary).map(([folder, items]: [string, any]) => (
                     <div key={folder} className="mb-4">

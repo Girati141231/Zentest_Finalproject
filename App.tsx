@@ -56,6 +56,7 @@ export default function App() {
   const { projects, activeProjectId, setActiveProjectId, handleProjectSave, handleJoin, handleDeleteProject } = useProjects(user);
   const {
     modules,
+    allModules,
     testCases,
     setTestCases,
     apiTestCases,
@@ -977,7 +978,7 @@ export default function App() {
                 className="bg-zinc-900 border border-white/10 text-[10px] text-white/70 rounded px-2 py-1 outline-none focus:border-white/20 custom-select uppercase font-bold tracking-wider"
               >
                 <option value="All">All Modules</option>
-                {modules.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+                {allModules.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
               </select>
 
               {/* Priority Filter */}
@@ -1098,6 +1099,7 @@ export default function App() {
                 setEditingCase(null);
                 setIsCaseModalOpen(true);
               }}
+              readOnly={activeProject?.role === 'viewer'}
             />
           ) : (
             <APITable
@@ -1152,6 +1154,7 @@ export default function App() {
                 setEditingAPICase(null);
                 setIsAPIModalOpen(true);
               }}
+              readOnly={activeProject?.role === 'viewer'}
             />
           )}
         </div>
@@ -1179,8 +1182,9 @@ export default function App() {
         isOpen={isCaseModalOpen}
         onClose={() => setIsCaseModalOpen(false)}
         activeProjectId={activeProjectId}
-        modules={modules}
+        modules={allModules}
         editingCase={editingCase}
+        user={user}
         onSave={async (data, isNew) => {
           await handleTestCaseSave(data, isNew);
           // Don't auto-close here, let TestCaseForm handle its own single-save close
@@ -1193,7 +1197,7 @@ export default function App() {
         isOpen={isAPIModalOpen}
         onClose={() => setIsAPIModalOpen(false)}
         activeProjectId={activeProjectId}
-        modules={modules}
+        modules={allModules}
         editingCase={editingAPICase}
         onSave={async (data, isNew) => {
           await handleAPICaseSave(data, isNew);

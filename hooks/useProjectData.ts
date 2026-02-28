@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db, appId, isConfigured } from '../firebase';
 import { TestCase, APITestCase, Module, Comment, Project } from '../types';
@@ -71,6 +71,11 @@ export const useProjectData = (user: any, activeProjectId: string | null) => {
         };
         const payload = { ...data, ...audit };
 
+        // auto-create module if it doesn't exist
+        if (data.module && data.module.trim() !== '' && !modules.some(m => m.name.toLowerCase() === data.module!.toLowerCase())) {
+            await handleAddModule(data.module);
+        }
+
         // Optimistic Update
         if (!isNew && data.id) {
             setTestCases((prev: TestCase[]) => prev.map(c => c.id === data.id ? { ...c, ...payload } as TestCase : c));
@@ -93,6 +98,11 @@ export const useProjectData = (user: any, activeProjectId: string | null) => {
             timestamp: Date.now()
         };
         const payload = { ...data, ...audit };
+
+        // auto-create module if it doesn't exist
+        if (data.module && data.module.trim() !== '' && !modules.some(m => m.name.toLowerCase() === data.module!.toLowerCase())) {
+            await handleAddModule(data.module);
+        }
 
         // Optimistic Update
         if (!isNew && data.id) {
@@ -160,8 +170,38 @@ export const useProjectData = (user: any, activeProjectId: string | null) => {
     };
 
 
+    const allModules = useMemo(() => {
+        const list = [...modules];
+        const existingNames = new Set(modules.map(m => m.name.toLowerCase()));
+
+        const discoveredNames = new Set<string>();
+        // Always suggest 'General' as it's the system default fallback
+        discoveredNames.add('General');
+
+        [...testCases, ...apiTestCases].forEach(tc => {
+            if (tc.module && tc.module.trim() !== '') {
+                discoveredNames.add(tc.module.trim());
+            }
+        });
+
+        discoveredNames.forEach(name => {
+            if (!existingNames.has(name.toLowerCase())) {
+                const isGeneral = name.toLowerCase() === 'general';
+                list.push({
+                    id: isGeneral ? 'default-general' : `discovered-${name}`,
+                    name,
+                    projectId: activeProjectId || ''
+                } as Module);
+            }
+        });
+
+        return list.sort((a, b) => a.name.localeCompare(b.name));
+    }, [modules, testCases, apiTestCases, activeProjectId]);
+
+
     return {
         modules,
+        allModules,
         testCases,
         setTestCases, // Exposed for automation / bulk run updates
         apiTestCases,

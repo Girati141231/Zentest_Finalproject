@@ -7,13 +7,100 @@ const stepCountText = document.getElementById('stepCount');
 // โหลดข้อมูลเดิม
 chrome.storage.local.get(['isRecording', 'testSteps', 'apiKey', 'selectedProjectId', 'projects', 'lastFolder', 'lastScenario'], (result) => {
     isRecording = !!result.isRecording;
-    if (result.apiKey) document.getElementById('apiKeyInput').value = result.apiKey;
+    if (result.apiKey) {
+        document.getElementById('apiKeyInput').value = result.apiKey;
+        // Auto-fetch projects to keep them real-time
+        fetchProjects(result.apiKey);
+    }
     if (result.projects) updateProjectDropdown(result.projects, result.selectedProjectId);
+    
+    // Load current typing state or fallback to last saved
     if (result.lastFolder) document.getElementById('folderNameInput').value = result.lastFolder;
     if (result.lastScenario) document.getElementById('scenarioNameInput').value = result.lastScenario;
     
     updateDisplay(); 
     updateButtonUI();
+});
+
+// Helper function to fetch projects from server
+async function fetchProjects(key) {
+    if (!key) return;
+    try {
+        const response = await fetch('http://localhost:3002/projects', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ apiKey: key })
+        });
+        const data = await response.json();
+        if (response.ok && data.projects) {
+            const currentSelection = document.getElementById('projectSelect').value;
+            chrome.storage.local.set({ projects: data.projects });
+            updateProjectDropdown(data.projects, currentSelection);
+            if (currentSelection) fetchModules(currentSelection);
+        }
+    } catch (err) {
+        console.error('Auto-sync failed:', err);
+    }
+}
+
+// Fetch Modules for Project
+async function fetchModules(projectId) {
+    if (!projectId) return;
+    try {
+        const response = await fetch(`http://localhost:3002/modules/${projectId}`);
+        const data = await response.json();
+        if (response.ok && data.modules) {
+            updateModuleDropdown(data.modules);
+        }
+    } catch (err) {
+        console.error('Failed to fetch modules:', err);
+    }
+}
+
+function updateModuleDropdown(modules) {
+    const select = document.getElementById('moduleSelect');
+    const folderInput = document.getElementById('folderNameInput');
+    
+    // Clear and add only project modules
+    let html = '<option value="">-- SELECT PROJECT MODULE --</option>';
+    if (modules && modules.length > 0) {
+        html += modules.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
+    } else {
+        html = '<option value="">-- NO MODULES IN PROJECT --</option>';
+    }
+    select.innerHTML = html;
+
+    // Restore dropdown selection. The folderInput is already handled by initial storage load.
+    chrome.storage.local.get(['lastModule'], (result) => {
+        if (result.lastModule && modules.some(m => m.name === result.lastModule)) {
+            select.value = result.lastModule;
+        }
+    });
+}
+
+document.getElementById('moduleSelect').addEventListener('change', (e) => {
+    const val = e.target.value;
+    if (!val) return; // Prevent overwriting with empty placeholder
+    const folderInput = document.getElementById('folderNameInput');
+    folderInput.value = val;
+    chrome.storage.local.set({ lastModule: val, lastFolder: val });
+});
+
+// Real-time persistence for input fields
+document.getElementById('folderNameInput').addEventListener('input', (e) => {
+    const val = e.target.value;
+    chrome.storage.local.set({ lastFolder: val });
+    
+    // If user starts typing, reset the dropdown so it doesn't conflict
+    const select = document.getElementById('moduleSelect');
+    if (select.value !== '' && select.value !== val) {
+        select.value = '';
+        chrome.storage.local.set({ lastModule: '' });
+    }
+});
+
+document.getElementById('scenarioNameInput').addEventListener('input', (e) => {
+    chrome.storage.local.set({ lastScenario: e.target.value });
 });
 
 document.getElementById('settingsBtn').addEventListener('click', () => {
@@ -81,7 +168,22 @@ function updateProjectDropdown(projects, selectedId) {
         projects.map(p => `<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>${p.name}</option>`).join('');
 }
 
-document.getElementById('projectSelect').addEventListener('change', (e) => chrome.storage.local.set({ selectedProjectId: e.target.value }));
+document.getElementById('projectSelect').addEventListener('change', (e) => {
+    const projectId = e.target.value;
+    const folderInput = document.getElementById('folderNameInput');
+    const moduleSelect = document.getElementById('moduleSelect');
+    
+    // Reset selections and inputs
+    folderInput.value = '';
+    moduleSelect.value = '';
+    chrome.storage.local.set({ 
+        selectedProjectId: projectId, 
+        lastModule: '', 
+        lastFolder: '' 
+    });
+    
+    if (projectId) fetchModules(projectId);
+});
 
 function updateDisplay() {
     chrome.storage.local.get(['testSteps'], (result) => {
@@ -148,6 +250,7 @@ document.getElementById('exportBtn').addEventListener('click', () => {
 document.getElementById('syncBtn').addEventListener('click', async () => {
     const folder = document.getElementById('folderNameInput').value;
     const scenario = document.getElementById('scenarioNameInput').value;
+    const moduleName = document.getElementById('moduleSelect').value;
     
     if (!folder || !scenario) return alert('Configuration Required: Module Path and Suite Identifier must be specified.');
 
@@ -183,13 +286,14 @@ document.getElementById('syncBtn').addEventListener('click', async () => {
                     apiKey: result.apiKey,
                     projectId: result.selectedProjectId,
                     folderName: folder,
+                    moduleName: moduleName,
                     scenarioName: scenario
                 })
             });
 
             if (response.ok) {
-                chrome.storage.local.set({ lastFolder: folder, lastScenario: scenario });
-                alert('Deployment Success: Scenario synchronized with Automation Hub.');
+                const resData = await response.json();
+                alert(`Deployment Success: Synchronized under [${resData.finalFolder || folder}]`);
             } else {
                 alert('Deployment Failure: Server rejected the manifest.');
             }

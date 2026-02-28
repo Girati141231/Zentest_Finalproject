@@ -43,7 +43,10 @@ export const useProjects = (user: any) => {
                 const allPublic = s.docs.map(d => ({ id: d.id, ...d.data() } as Project));
                 const myData = allPublic
                     .filter(p => projectIds.includes(p.id))
-                    .map(p => ({ ...p, role: myRoles.get(p.id) as any }));
+                    .map(p => ({
+                        ...p,
+                        role: p.owner === user.uid ? 'owner' : (myRoles.get(p.id) as any)
+                    }));
 
                 setProjects(myData);
                 // Only auto-select if no active project or active one is gone

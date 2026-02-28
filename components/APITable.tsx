@@ -129,13 +129,29 @@ const APITable: React.FC<APITableProps> = ({
                                     {expandedDetails.has(c.id) && (
                                         <div className="animate-in slide-in-from-top-2 fade-in duration-300 space-y-3 mt-1 bg-black/40 rounded border border-white/5 p-4">
                                             {c.headers && c.headers.length > 0 && (
-                                                <div className="space-y-1.5">
-                                                    <div className="text-[9px] text-white/30 uppercase tracking-widest font-bold">Headers</div>
-                                                    <div className="grid gap-1">
+                                                <div className="space-y-2">
+                                                    <div className="text-[9px] text-white/30 uppercase tracking-widest font-bold flex items-center gap-2">
+                                                        <span>Headers</span>
+                                                        <div className="h-px flex-1 bg-white/5"></div>
+                                                    </div>
+                                                    <div className="grid gap-2">
                                                         {c.headers.map((h, i) => (
-                                                            <div key={i} className="text-[10px] font-mono flex gap-2">
-                                                                <span className="text-blue-400">{h.key}:</span>
-                                                                <span className="text-white/60">{h.value}</span>
+                                                            <div key={i} className="flex flex-col gap-1 bg-white/[0.01] border border-white/5 rounded p-2 hover:bg-white/[0.03] transition-colors group/token">
+                                                                <div className="flex justify-between items-center">
+                                                                    <span className="text-[9px] font-bold text-blue-400/80 uppercase tracking-tight">{h.key}</span>
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            navigator.clipboard.writeText(h.value);
+                                                                        }}
+                                                                        className="text-[8px] text-white/20 hover:text-white transition-colors uppercase opacity-0 group-hover/token:opacity-100"
+                                                                    >
+                                                                        Copy
+                                                                    </button>
+                                                                </div>
+                                                                <span className="text-[10px] font-mono text-white/50 break-all leading-normal whitespace-pre-wrap">
+                                                                    {h.value}
+                                                                </span>
                                                             </div>
                                                         ))}
                                                     </div>

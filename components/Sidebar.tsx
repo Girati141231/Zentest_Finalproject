@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  Menu, ChevronLeft, Plus, Share2, Settings, LogOut, User, Shield, Key
+  Menu, ChevronLeft, Plus, Share2, Settings, LogOut, User, Shield, Key, Copy
 } from 'lucide-react';
 import { Project, COLORS } from '../types';
 
@@ -185,19 +185,42 @@ const Sidebar: React.FC<SidebarProps> = ({
               <User size={14} className="text-white/30" />
             )}
           </div>
-          {isExpanded && (
-            <div className="flex flex-col min-w-0 animate-in fade-in duration-200 overflow-hidden">
-              <span className="text-[11px] font-bold truncate text-white whitespace-nowrap">
+          <div className="flex flex-col min-w-0 animate-in fade-in duration-300">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[12px] font-black truncate text-white tracking-tight">
                 {user.displayName || 'Enterprise User'}
-                {isPro ? (
-                  <span className="ml-2 text-[9px] bg-green-900/40 text-green-400 px-1.5 py-0.5 rounded border border-green-500/30 animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.2)] tracking-wider">PRO</span>
-                ) : (
-                  <span className="ml-2 text-[9px] bg-white/10 text-white/40 px-1.5 py-0.5 rounded border border-white/10 tracking-wider">FREE</span>
-                )}
               </span>
-              <span className="text-[9px] text-white/30 truncate whitespace-nowrap">{user.email}</span>
+              {isPro ? (
+                <span className="text-[8px] bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded-full border border-emerald-500/20 font-black tracking-widest uppercase animate-pulse shadow-[0_0_12px_rgba(52,211,153,0.3)]">PRO</span>
+              ) : (
+                <span className="text-[8px] bg-white/5 text-white/40 px-1.5 py-0.5 rounded-full border border-white/10 font-black tracking-widest uppercase">FREE</span>
+              )}
             </div>
-          )}
+
+            {/* Enhanced Connection Key UI */}
+            <div className="relative group/key">
+              <div
+                onClick={() => {
+                  navigator.clipboard.writeText(user.uid);
+                  alert("Connection Key copied to clipboard!");
+                }}
+                className="flex flex-col gap-0.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 rounded-lg py-1.5 px-2.5 transition-all cursor-pointer group-hover/key:border-purple-500/30"
+              >
+                <div className="flex justify-between items-center group-hover/key:pb-0.5 transition-all">
+                  <span className="text-[7px] font-black text-white/30 uppercase tracking-[0.2em]">Connection Key</span>
+                  <Copy size={8} className="text-white/20 group-hover/key:text-purple-400" />
+                </div>
+                <span className="text-[9px] font-mono text-white/40 group-hover/key:text-white/80 transition-colors truncate">
+                  {user.uid}
+                </span>
+              </div>
+
+              {/* Tooltip on hover */}
+              <div className="absolute -top-8 left-0 scale-75 opacity-0 group-hover/key:opacity-100 group-hover/key:scale-100 transition-all pointer-events-none bg-purple-600 text-white text-[9px] font-bold px-3 py-1.5 rounded shadow-2xl z-50 whitespace-nowrap">
+                Click to Copy (Paste in Extension)
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </aside>

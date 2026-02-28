@@ -279,30 +279,143 @@ const ProjectModals: React.FC<ProjectModalsProps> = ({
               </div>
 
               <button onClick={handleSave} className="w-full py-3 bg-white text-black rounded-sm text-[11px] font-bold uppercase tracking-widest hover:bg-zinc-200 transition-all font-sans">Update Settings</button>
+
+              <div className="space-y-4 pt-6 border-t border-white/5">
+                <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest block">Module Management</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newModName}
+                    onChange={(e) => setNewModName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { onAddModule(newModName); setNewModName(''); } }}
+                    className="flex-1 bg-white/[0.03] border border-white/10 rounded-sm px-3 py-2 text-xs text-white outline-none focus:border-blue-500/50"
+                    placeholder="New module name..."
+                  />
+                  <button
+                    onClick={() => { onAddModule(newModName); setNewModName(''); }}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-sm transition-all"
+                  >
+                    Add
+                  </button>
+                </div>
+
+                <div className="space-y-1.5 max-h-[150px] overflow-y-auto pr-1 custom-scrollbar">
+                  {modules.map(mod => (
+                    <div key={mod.id} className="flex items-center justify-between p-2 bg-white/[0.02] border border-white/5 group">
+                      {editingModId === mod.id ? (
+                        <input
+                          autoFocus
+                          value={editingModName}
+                          onChange={(e) => setEditingModName(e.target.value)}
+                          onBlur={() => handleUpdateModule(mod.id)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleUpdateModule(mod.id)}
+                          className="flex-1 bg-white/5 border-none outline-none text-xs text-white px-1"
+                        />
+                      ) : (
+                        <span className="text-xs text-white/60">{mod.name}</span>
+                      )}
+
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => { setEditingModId(mod.id); setEditingModName(mod.name); }}
+                          className="p-1 text-white/20 hover:text-white transition-colors"
+                        >
+                          <RotateCcw size={12} />
+                        </button>
+                        <button
+                          onClick={() => onDeleteModule(mod.id)}
+                          className="p-1 text-white/20 hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {modules.length === 0 && <p className="text-[10px] text-white/10 italic py-2">No modules defined yet.</p>}
+                </div>
+              </div>
             </div>
 
             <div className="space-y-6">
               <label className="text-[10px] text-white/40 uppercase font-bold tracking-widest block">Team Management</label>
               <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                {members.map((member) => (
-                  <div key={member.uid} className="flex justify-between items-center p-3 bg-white/[0.02] border border-white/5 rounded-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="w-7 h-7 rounded-full bg-blue-500/20 overflow-hidden flex items-center justify-center">
-                        {member.photoURL ? <img src={member.photoURL} className="w-full h-full object-cover" /> : <span className="text-[10px] font-bold text-blue-400">{member.displayName?.[0]}</span>}
+                {members.map((member) => {
+                  const isOwner = member.uid === activeProject?.owner;
+                  const displayRole = isOwner ? 'owner' : member.role;
+
+                  return (
+                    <div key={member.uid} className="flex justify-between items-center p-3 bg-white/[0.02] border border-white/5 rounded-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-blue-500/20 overflow-hidden flex items-center justify-center border border-white/5 relative">
+                          {member.photoURL ? <img src={member.photoURL} className="w-full h-full object-cover" /> : <span className="text-[11px] font-bold text-blue-400">{member.displayName?.[0]}</span>}
+                          {member.accessRequested && activeProject?.owner === user.uid && (
+                            <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-zinc-900 animate-pulse" />
+                          )}
+                        </div>
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-bold text-white/90">{member.displayName} {member.uid === user.uid && "(You)"}</span>
+                            {member.accessRequested && (
+                              <span className="text-[8px] bg-red-500/10 text-red-500 px-1 py-0.5 rounded-full font-black uppercase tracking-tighter">Requesting Access</span>
+                            )}
+                          </div>
+                          <span className="text-[9px] text-white/40 uppercase font-bold tracking-tight">{displayRole}</span>
+                        </div>
                       </div>
-                      <div className="flex flex-col"><span className="text-[11px] font-bold text-white/90">{member.displayName} {member.uid === user.uid && "(You)"}</span><span className="text-[9px] text-white/40">{member.role}</span></div>
+                      <div className="flex items-center gap-1">
+                        {activeProject?.owner === user.uid && member.accessRequested && (
+                          <div className="flex items-center gap-1 mr-2 bg-white/5 p-0.5 rounded-sm border border-white/5">
+                            <button
+                              onClick={() => ProjectService.resolveAccessRequest(activeProject!.id, member.uid, true)}
+                              className="w-7 h-7 flex items-center justify-center bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white rounded-sm transition-all"
+                              title="Approve Editor Access"
+                            >
+                              <Check size={12} strokeWidth={3} />
+                            </button>
+                            <button
+                              onClick={() => ProjectService.resolveAccessRequest(activeProject!.id, member.uid, false)}
+                              className="w-7 h-7 flex items-center justify-center bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-sm transition-all"
+                              title="Deny Access"
+                            >
+                              <X size={12} strokeWidth={3} />
+                            </button>
+                          </div>
+                        )}
+                        {activeProject?.owner === user.uid && !isOwner && (
+                          <button
+                            onClick={() => ProjectService.kickMember(activeProject!.id, member.uid)}
+                            className="w-7 h-7 flex items-center justify-center text-white/10 hover:text-red-500 hover:bg-red-500/10 rounded-sm transition-all"
+                            title="Remove Member"
+                          >
+                            <X size={16} />
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    {activeProject?.owner === user.uid && member.role !== 'owner' && (
-                      <button onClick={() => ProjectService.kickMember(activeProject!.id, member.uid)} className="text-white/10 hover:text-red-500 transition-colors"><X size={14} /></button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
 
           <div className="pt-6 border-t border-red-500/10 opacity-50 hover:opacity-100 transition-opacity">
-            <button onClick={() => { if (activeProject?.owner === user.uid) onDelete(activeProject!.id, true); else onDelete(activeProject!.id, false); }} className="w-full py-3 border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white rounded-sm text-[10px] font-bold uppercase tracking-widest transition-all">
+            <button
+              onClick={() => {
+                const isOwner = activeProject?.owner === user.uid;
+                setConfirmConfig({
+                  title: isOwner ? 'Delete Project?' : 'Leave Project?',
+                  message: isOwner
+                    ? 'This action cannot be undone. Everything within this workspace will be permanently erased.'
+                    : 'Are you sure you want to leave this project? You will need an invitation code to return.',
+                  onConfirm: async () => {
+                    await onDelete(activeProject!.id, isOwner);
+                    setConfirmConfig(null);
+                    onClose();
+                  }
+                });
+              }}
+              className="w-full py-3 border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white rounded-sm text-[10px] font-black uppercase tracking-widest transition-all"
+            >
               {activeProject?.owner === user.uid ? "Destroy Project Permanently" : "Leave Project"}
             </button>
           </div>

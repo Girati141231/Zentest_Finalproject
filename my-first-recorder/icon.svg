@@ -1,0 +1,33 @@
+<svg width="128" height="128" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Glow effect -->
+  <circle cx="50" cy="50" r="45" fill="black"/>
+  <!-- Headphones arc -->
+  <path d="M25 45C25 30 36.1929 18 50 18C63.8071 18 75 30 75 45" stroke="#333" stroke-width="6" stroke-linecap="round"/>
+  <!-- Body -->
+  <path d="M50 18C33.4315 18 20 31.4315 20 48C20 64.5685 33.4315 88 50 88C66.5685 88 80 64.5685 80 48C80 31.4315 66.5685 18 50 18Z" fill="#F0F0F0"/>
+  <!-- Ears of Headphones -->
+  <rect x="15" y="40" width="12" height="20" rx="6" fill="#1A1A1A"/>
+  <rect x="73" y="40" width="12" height="20" rx="6" fill="#1A1A1A"/>
+  <!-- Ear Glow -->
+  <circle cx="21" cy="50" r="2.5" fill="#A855F7"/>
+  <circle cx="79" cy="50" r="2.5" fill="#A855F7"/>
+  <!-- Chest Circuit -->
+  <path d="M40 70H60M42 75H58M45 80H55" stroke="#A855F7" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+  <!-- Eye White Circles (Masking style) -->
+  <circle cx="36" cy="46" r="9" fill="#E0E0E0"/>
+  <circle cx="64" cy="46" r="9" fill="#E0E0E0"/>
+  <!-- Eye Glow -->
+  <circle cx="36" cy="46" r="5" fill="#1A1A1A"/>
+  <circle cx="64" cy="46" r="5" fill="#1A1A1A"/>
+  <circle cx="36" cy="46" r="3" fill="#A855F7">
+    <animate attributeName="opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite" />
+  </circle>
+  <circle cx="64" cy="46" r="3" fill="#A855F7">
+    <animate attributeName="opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite" />
+  </circle>
+  <!-- Beak -->
+  <path d="M50 50L47 55H53L50 50Z" fill="#333"/>
+  <!-- Checkbox (The one the owl holds) -->
+  <rect x="5" y="45" width="15" height="15" rx="3" fill="#A855F7" transform="rotate(-15 12.5 52.5)"/>
+  <path d="M9 53L12 56L17 51" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -39,31 +39,44 @@ const ensureAuth = async () => {
 
 // --- Endpoints ---
 
-// 0. Verify & Get Project (สำหรับ Extension)
+// 0. Verify & Get Projects for a User Account
 app.post('/projects', async (req, res) => {
-    const { apiKey } = req.body; // apiKey คือ ID ของโปรเจกต์
-    console.log(`[Extension] Requesting Project ID: ${apiKey}`);
+    const { apiKey: userId } = req.body; // apiKey ในรูปการณ์นี้คือ User ID
+    console.log(`[Extension] Requesting projects for Account: ${userId}`);
 
-    if (!apiKey) return res.status(400).json({ error: 'Project ID is required' });
+    if (!userId) return res.status(400).json({ error: 'User ID is required' });
 
     try {
         await ensureAuth();
-        // Path matches Rules: /artifacts/{appId}/public/data/projects/{projectId}
-        const docRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'projects', apiKey);
-        const docSnap = await getDoc(docRef);
-
-        if (docSnap.exists()) {
-            console.log(`[Extension] Project Found: ${docSnap.data().name}`);
-            res.json({
-                projects: [{
-                    id: docSnap.id,
-                    name: docSnap.data().name || 'Unnamed Project'
-                }]
-            });
-        } else {
-            console.warn(`[Extension] Project NOT Found at path: artifacts/${APP_ID}/public/data/projects/${apiKey}`);
-            res.status(404).json({ error: 'Project not found in Zentest database' });
+        
+        // 1. ดึงรายการ Project IDs ที่ User เป็นสมาชิกอยู่
+        // Path: /artifacts/{appId}/users/{userId}/myProjects
+        const myProjectsRef = collection(db, 'artifacts', APP_ID, 'users', userId, 'myProjects');
+        const myProjectsSnap = await getDocs(myProjectsRef);
+        
+        const projectIds = myProjectsSnap.docs.map(d => d.id);
+        
+        if (projectIds.length === 0) {
+            console.log(`[Extension] No projects found for account: ${userId}`);
+            return res.json({ projects: [] });
         }
+
+        // 2. ดึงข้อมูล Project Details สำหรับแต่ละ ID
+        // Note: Firestore 'in' query supports up to 10 items. For more, we'd need chunks.
+        // For ZenTest Compact, we assume users have < 10 projects or we fetch all and filter.
+        const projectsRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'projects');
+        const projectsSnap = await getDocs(projectsRef);
+        
+        const userProjects = projectsSnap.docs
+            .filter(d => projectIds.includes(d.id))
+            .map(d => ({
+                id: d.id,
+                name: d.data().name || 'Unnamed Project'
+            }));
+
+        console.log(`[Extension] Found ${userProjects.length} projects for account: ${userId}`);
+        res.json({ projects: userProjects });
+
     } catch (error) {
         console.error('CRITICAL ERROR in /projects:', error);
         res.status(500).json({ error: 'Local Server Error: ' + error.message });
@@ -72,10 +85,20 @@ app.post('/projects', async (req, res) => {
 
 // 1. บันทึก Automation 
 app.post('/save-automation', async (req, res) => {
-    const { steps, apiKey, projectId, folderName, scenarioName } = req.body;
-    console.log(`[Sync] Saving script: ${scenarioName} to Folder: ${folderName}`);
+    const { steps, apiKey, projectId, folderName, moduleName, scenarioName } = req.body;
+    
+    // VERBOSE DETERMINATION LOGIC
+    let finalFolder = 'General';
+    if (folderName && folderName.trim().length > 0 && folderName.trim() !== '-- SELECT PROJECT MODULE --') {
+        finalFolder = folderName.trim();
+    } else if (moduleName && moduleName !== '-- SELECT PROJECT MODULE --' && moduleName !== 'NEW_MODULE' && moduleName.trim() !== '') {
+        finalFolder = moduleName;
+    }
+    
+    console.log(`[Sync] FINAL DETERMINATION: from("${folderName}") and drop("${moduleName}") -> Result: "${finalFolder}"`);
+    console.log(`[Sync] Saving script: ${scenarioName} under Module/Folder: ${finalFolder}`);
 
-    if (!steps || !projectId || !folderName || !scenarioName) {
+    if (!steps || !projectId || !finalFolder || !scenarioName) {
         return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -85,19 +108,65 @@ app.post('/save-automation', async (req, res) => {
         const libRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'automationLibrary');
         const docRef = await addDoc(libRef, {
             projectId,
-            folderName,
+            folderName: finalFolder,
             scenarioName,
             steps,
-            createdBy: apiKey,
+            createdBy: apiKey || 'anonymous',
             createdAt: Date.now(),
             timestamp: Timestamp.now()
         });
 
         console.log(`[Sync] SUCCESS! Saved with ID: ${docRef.id}`);
-        res.json({ status: 'success', id: docRef.id });
+
+        // --- Auto-Create Module Logic ---
+        try {
+            const modulesRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'modules');
+            const q = query(modulesRef, 
+                where('projectId', '==', projectId),
+                where('name', '==', finalFolder)
+            );
+            const mSnap = await getDocs(q);
+            
+            if (mSnap.empty && finalFolder !== 'General') {
+                console.log(`[Sync] Creating new module: ${finalFolder} for project: ${projectId}`);
+                await addDoc(modulesRef, {
+                    projectId,
+                    name: finalFolder,
+                    createdAt: Date.now()
+                });
+            }
+        } catch (mErr) {
+            console.error('[Sync] Failed to auto-create module (Non-critical):', mErr.message);
+        }
+
+        res.json({ status: 'success', id: docRef.id, finalFolder: finalFolder });
     } catch (error) {
         console.error('CRITICAL ERROR in /save-automation:', error);
         res.status(500).json({ error: 'Failed to save to Firestore: ' + error.message });
+    }
+});
+
+// 1.5 ดึงรายการ Modules สำหรับ Project
+app.get('/modules/:projectId', async (req, res) => {
+    const { projectId } = req.params;
+    console.log(`[Extension] Fetching modules for Project: ${projectId}`);
+    
+    try {
+        await ensureAuth();
+        const modulesRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'modules');
+        const q = query(modulesRef, where('projectId', '==', projectId));
+        const snap = await getDocs(q);
+        
+        const modules = snap.docs.map(d => ({
+            id: d.id,
+            name: d.data().name
+        }));
+        
+        console.log(`[Extension] Found ${modules.length} modules`);
+        res.json({ modules });
+    } catch (error) {
+        console.error('CRITICAL ERROR in /modules:', error);
+        res.status(500).json({ error: error.message });
     }
 });
 
